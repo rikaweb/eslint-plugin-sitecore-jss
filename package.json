@@ -5,6 +5,7 @@
   "main": "lib/index.js",
   "scripts": {
     "lint": "eslint . --ext .js,.ts,.tsx",
+    "build": "mkdir lib 2>nul & if exist rules xcopy /E /I rules lib\\rules & copy index.js lib\\",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
