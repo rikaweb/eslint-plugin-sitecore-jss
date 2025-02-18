@@ -1,0 +1,45 @@
+{
+  "name": "eslint-plugin-sitecore-jss",
+  "version": "1.0.0-beta.1",
+  "description": "An ESLint plugin to enforce correct usage of Sitecore JSS components",
+  "main": "lib/index.js",
+  "scripts": {
+    "lint": "eslint . --ext .js,.ts,.tsx",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "eslint",
+    "plugin",
+    "sitecore",
+    "sitecore-jss",
+    "eslint-plugin"
+  ],
+  "author": "Sohrab Saboori",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rikaweb/eslint-plugin-sitecore-jss.git"
+  },
+  "engines": {
+    "node": ">=14"
+  },
+  "peerDependencies": {
+    "eslint": ">=7.0.0"
+  },
+  "devDependencies": {
+    "@typescript-eslint/parser": "^8.24.0",
+    "eslint": "^9.20.1"
+  },
+  "dependencies": {
+    "@typescript-eslint/utils": "^8.24.0"
+  },
+  "files": [
+    "lib/",
+    "README.md"
+  ],
+  "eslintConfig": {
+    "extends": [
+      "plugin:sitecore-jss/recommended"
+    ]
+  }
+}
