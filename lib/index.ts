@@ -5,7 +5,21 @@ import enforceImageComponent from "./rules/enforce-image-component";
 import enforceLinkComponent from "./rules/enforce-link-component";
 import enforceFileComponent from "./rules/enforce-file-component";
 
-export = {
+type Plugin = {
+  rules: Record<string, unknown>;
+  configs: {
+    recommended: {
+      plugins: string[];
+      rules: Record<string, string>;
+    };
+    all: {
+      plugins: string[];
+      rules: Record<string, string>;
+    };
+  };
+};
+
+const plugin: Plugin = {
   rules: {
     "enforce-text-component": enforceTextComponent,
     "enforce-richtext-component": enforceRichTextComponent,
@@ -33,3 +47,5 @@ export = {
     },
   },
 };
+
+export = plugin;

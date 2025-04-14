@@ -11,12 +11,13 @@ import typeUtils from "./utils/type-checking";
 const { getType, isImageField } = typeUtils;
 
 export default {
+  defaultOptions: [] as never[],
   meta: {
     type: "problem",
     docs: {
       description:
         "Ensure `<Image>` is used instead of raw `<img>` for `ImageField`",
-      recommended: true,
+      recommended: "recommended",
     },
     messages: {
       useImageComponent:

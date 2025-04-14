@@ -20,11 +20,12 @@ type MessageIds =
 type NodeTypes = TSESTree.Node | TSESTree.JSXOpeningElement;
 
 export default {
+  defaultOptions: [] as never[],
   meta: {
     type: "problem",
     docs: {
       description: "Ensures correct usage of all Sitecore JSS components.",
-      recommended: true,
+      recommended: "recommended",
     },
     fixable: "code",
     schema: [],

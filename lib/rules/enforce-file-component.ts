@@ -11,12 +11,13 @@ import typeUtils from "./utils/type-checking";
 const { getType, isFileField } = typeUtils;
 
 export default {
+  defaultOptions: [] as never[],
   meta: {
     type: "problem",
     docs: {
       description:
         "Ensure `<File>` is used instead of raw `<a>` for `FileField`.",
-      recommended: true,
+      recommended: "recommended",
     },
     messages: {
       useFileComponent:

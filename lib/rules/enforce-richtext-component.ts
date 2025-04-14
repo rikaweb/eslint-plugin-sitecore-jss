@@ -11,12 +11,13 @@ import typeUtils from "./utils/type-checking";
 const { getType, isRichTextField } = typeUtils;
 
 export default {
+  defaultOptions: [] as never[],
   meta: {
     type: "problem",
     docs: {
       description:
         "Ensure `<RichText>` is used for `RichTextField` instead of raw JSX elements.",
-      recommended: true,
+      recommended: "recommended",
     },
     messages: {
       useRichTextComponent:

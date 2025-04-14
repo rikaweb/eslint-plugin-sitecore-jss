@@ -11,12 +11,13 @@ import typeUtils from "./utils/type-checking";
 const { getType, isLinkField } = typeUtils;
 
 export default {
+  defaultOptions: [] as never[],
   meta: {
     type: "problem",
     docs: {
       description:
         "Ensure `<Link>` is used instead of raw `<a>` for `LinkField`.",
-      recommended: true,
+      recommended: "recommended",
     },
     messages: {
       useLinkComponent:

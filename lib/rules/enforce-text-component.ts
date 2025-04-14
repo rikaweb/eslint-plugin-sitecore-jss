@@ -11,12 +11,13 @@ import typeUtils from "./utils/type-checking";
 const { getType, isFieldString, isTextField } = typeUtils;
 
 export default {
+  defaultOptions: [] as never[],
   meta: {
     type: "problem",
     docs: {
       description:
         "Ensure `<Text>` is used instead of raw JSX elements for `Field<string>`",
-      recommended: true,
+      recommended: "recommended",
     },
     messages: {
       useTextComponent:
