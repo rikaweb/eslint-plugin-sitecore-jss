@@ -1,9 +1,9 @@
 const DEBUG = false; // Set to `true` to enable logging
 
-function log(...args) {
+function log(...args: unknown[]): void {
   if (DEBUG) {
     console.log("🔍 [ESLint Debug]:", ...args);
   }
 }
 
-module.exports = { log };
+export default { log };

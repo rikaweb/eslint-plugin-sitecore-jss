@@ -1,10 +1,25 @@
-const enforceTextComponent = require("./enforce-text-component");
-const enforceRichTextComponent = require("./enforce-richtext-component");
-const enforceImageComponent = require("./enforce-image-component");
-const enforceLinkComponent = require("./enforce-link-component");
-const enforceFileComponent = require("./enforce-file-component");
+import { TSESTree } from "@typescript-eslint/utils";
+import {
+  RuleContext,
+  RuleListener,
+  RuleFunction,
+} from "@typescript-eslint/utils/dist/ts-eslint";
+import enforceTextComponent from "./enforce-text-component";
+import enforceRichTextComponent from "./enforce-richtext-component";
+import enforceImageComponent from "./enforce-image-component";
+import enforceLinkComponent from "./enforce-link-component";
+import enforceFileComponent from "./enforce-file-component";
 
-module.exports = {
+type MessageIds =
+  | "useTextComponent"
+  | "useRichTextComponent"
+  | "useImageComponent"
+  | "useLinkComponent"
+  | "useFileComponent";
+
+type NodeTypes = TSESTree.Node | TSESTree.JSXOpeningElement;
+
+export default {
   meta: {
     type: "problem",
     docs: {
@@ -21,7 +36,7 @@ module.exports = {
       ...enforceFileComponent.meta.messages,
     },
   },
-  create(context) {
+  create(context: RuleContext<MessageIds, never[]>) {
     // Collect all rule listeners
     const listeners = [
       enforceTextComponent.create(context),
@@ -29,17 +44,20 @@ module.exports = {
       enforceImageComponent.create(context),
       enforceLinkComponent.create(context),
       enforceFileComponent.create(context),
-    ];
+    ] as RuleListener[];
 
     // Merge all event listeners into one object
-    const mergedListeners = {};
+    const mergedListeners: Record<string, RuleFunction<NodeTypes>[]> = {};
 
     listeners.forEach((listener) => {
       Object.keys(listener).forEach((event) => {
         if (!mergedListeners[event]) {
           mergedListeners[event] = [];
         }
-        mergedListeners[event].push(listener[event]);
+        const handler = listener[event as keyof RuleListener];
+        if (typeof handler === "function") {
+          mergedListeners[event].push(handler as RuleFunction<NodeTypes>);
+        }
       });
     });
 
@@ -47,10 +65,10 @@ module.exports = {
     return Object.fromEntries(
       Object.entries(mergedListeners).map(([event, handlers]) => [
         event,
-        function (...args) {
-          handlers.forEach((handler) => handler(...args));
+        function (node: NodeTypes) {
+          handlers.forEach((handler) => handler(node));
         },
       ])
-    );
+    ) as RuleListener;
   },
 };

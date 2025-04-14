@@ -1,7 +1,16 @@
-const { ESLintUtils } = require("@typescript-eslint/utils");
-const { getType, isImageField } = require("./utils/type-checking");
+import {
+  ESLintUtils,
+  TSESTree,
+  AST_NODE_TYPES,
+} from "@typescript-eslint/utils";
+import {
+  RuleContext,
+  RuleFixer,
+} from "@typescript-eslint/utils/dist/ts-eslint";
+import typeUtils from "./utils/type-checking";
+const { getType, isImageField } = typeUtils;
 
-module.exports = {
+export default {
   meta: {
     type: "problem",
     docs: {
@@ -17,27 +26,33 @@ module.exports = {
     schema: [],
   },
 
-  create(context) {
+  create(context: RuleContext<"useImageComponent", never[]>) {
     const parserServices = ESLintUtils.getParserServices(context);
     if (!parserServices || !parserServices.program) return {};
     const checker = parserServices.program.getTypeChecker();
 
     return {
-      JSXOpeningElement(node) {
-        if (node.name.name !== "img") return;
+      JSXOpeningElement(node: TSESTree.JSXOpeningElement) {
+        if (
+          node.name.type !== AST_NODE_TYPES.JSXIdentifier ||
+          node.name.name !== "img"
+        )
+          return;
 
         const srcAttribute = node.attributes.find(
-          (attr) => attr.type === "JSXAttribute" && attr.name.name === "src"
+          (attr): attr is TSESTree.JSXAttribute =>
+            attr.type === AST_NODE_TYPES.JSXAttribute &&
+            attr.name.type === AST_NODE_TYPES.JSXIdentifier &&
+            attr.name.name === "src"
         );
         if (
-          !srcAttribute ||
-          !srcAttribute.value ||
-          srcAttribute.value.type !== "JSXExpressionContainer"
+          !srcAttribute?.value ||
+          srcAttribute.value.type !== AST_NODE_TYPES.JSXExpressionContainer
         )
           return;
 
         const expression = srcAttribute.value.expression;
-        if (expression.type !== "MemberExpression") return;
+        if (expression.type !== AST_NODE_TYPES.MemberExpression) return;
 
         const tsNode = parserServices.esTreeNodeToTSNodeMap.get(
           expression.object
@@ -47,27 +62,29 @@ module.exports = {
         const type = getType(tsNode, checker);
 
         if (isImageField(type)) {
-          // Extract `props.fields.image` instead of `props.fields.image.value.src`
-          let fieldName = expression;
+          let fieldName = expression as TSESTree.MemberExpression;
 
-          // Traverse back up the MemberExpression chain to remove `.value.src`
-          while (fieldName.type === "MemberExpression") {
-            if (["value", "src"].includes(fieldName.property.name)) {
-              fieldName = fieldName.object; // Step back to remove ".value.src"
+          while (fieldName.type === AST_NODE_TYPES.MemberExpression) {
+            if (
+              fieldName.property.type === AST_NODE_TYPES.Identifier &&
+              ["value", "src"].includes(fieldName.property.name)
+            ) {
+              fieldName = fieldName.object as TSESTree.MemberExpression;
             } else {
               break;
             }
           }
 
           const fieldNameText = context.getSourceCode().getText(fieldName);
+          const parentElement = node.parent as TSESTree.JSXElement;
 
           context.report({
             node,
             messageId: "useImageComponent",
             data: { fieldName: fieldNameText },
-            fix(fixer) {
+            fix(fixer: RuleFixer) {
               return fixer.replaceText(
-                node.parent,
+                parentElement,
                 `<Image field={${fieldNameText}} />`
               );
             },

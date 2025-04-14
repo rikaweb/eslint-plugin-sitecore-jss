@@ -1,7 +1,16 @@
-const { ESLintUtils } = require("@typescript-eslint/utils");
-const { getType, isLinkField } = require("./utils/type-checking");
+import {
+  ESLintUtils,
+  TSESTree,
+  AST_NODE_TYPES,
+} from "@typescript-eslint/utils";
+import {
+  RuleContext,
+  RuleFixer,
+} from "@typescript-eslint/utils/dist/ts-eslint";
+import typeUtils from "./utils/type-checking";
+const { getType, isLinkField } = typeUtils;
 
-module.exports = {
+export default {
   meta: {
     type: "problem",
     docs: {
@@ -17,31 +26,35 @@ module.exports = {
     schema: [],
   },
 
-  create(context) {
+  create(context: RuleContext<"useLinkComponent", never[]>) {
     const parserServices = ESLintUtils.getParserServices(context);
     if (!parserServices || !parserServices.program) return {};
     const checker = parserServices.program.getTypeChecker();
 
     return {
-      JSXOpeningElement(node) {
-        if (node.name.name !== "a") return;
+      JSXOpeningElement(node: TSESTree.JSXOpeningElement) {
+        if (
+          node.name.type !== AST_NODE_TYPES.JSXIdentifier ||
+          node.name.name !== "a"
+        )
+          return;
 
         const hrefAttr = node.attributes.find(
-          (attr) => attr.type === "JSXAttribute" && attr.name.name === "href"
+          (attr): attr is TSESTree.JSXAttribute =>
+            attr.type === AST_NODE_TYPES.JSXAttribute &&
+            attr.name.type === AST_NODE_TYPES.JSXIdentifier &&
+            attr.name.name === "href"
         );
-        if (!hrefAttr) return;
-
         if (
-          !hrefAttr.value ||
-          hrefAttr.value.type !== "JSXExpressionContainer"
+          !hrefAttr?.value ||
+          hrefAttr.value.type !== AST_NODE_TYPES.JSXExpressionContainer
         ) {
           console.warn("⚠️ `href` does not contain an expression, skipping.");
           return;
         }
 
         const expression = hrefAttr.value.expression;
-
-        if (expression.type !== "MemberExpression") {
+        if (expression.type !== AST_NODE_TYPES.MemberExpression) {
           console.warn(
             "⚠️ `href` is not a MemberExpression, skipping:",
             context.getSourceCode().getText(expression)
@@ -59,34 +72,30 @@ module.exports = {
 
         const type = getType(tsNode, checker);
 
-        // ✅ Fix: Check for both `LinkField` and `LinkFieldValue`
         if (isLinkField(type)) {
-          let fieldName = expression;
-          while (fieldName.type === "MemberExpression") {
+          let fieldName = expression as TSESTree.MemberExpression;
+          while (fieldName.type === AST_NODE_TYPES.MemberExpression) {
             if (
-              fieldName.property.name === "value" ||
-              fieldName.property.name === "href"
+              fieldName.property.type === AST_NODE_TYPES.Identifier &&
+              (fieldName.property.name === "value" ||
+                fieldName.property.name === "href")
             ) {
-              fieldName = fieldName.object; // Go one step up
+              fieldName = fieldName.object as TSESTree.MemberExpression;
             } else {
               break;
             }
           }
 
           const fieldNameText = context.getSourceCode().getText(fieldName);
-
-          const innerText =
-            node.children && node.children.length > 0
-              ? context.getSourceCode().getText(node.children[0])
-              : "";
+          const parentElement = node.parent as TSESTree.JSXElement;
 
           context.report({
             node,
             messageId: "useLinkComponent",
             data: { fieldName: fieldNameText },
-            fix(fixer) {
+            fix(fixer: RuleFixer) {
               return fixer.replaceText(
-                node.parent,
+                parentElement,
                 `<Link field={${fieldNameText}} />`
               );
             },

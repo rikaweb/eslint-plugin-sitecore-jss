@@ -1,7 +1,16 @@
-const { ESLintUtils } = require("@typescript-eslint/utils");
-const { getType, isFileField } = require("./utils/type-checking");
+import {
+  ESLintUtils,
+  TSESTree,
+  AST_NODE_TYPES,
+} from "@typescript-eslint/utils";
+import {
+  RuleContext,
+  RuleFixer,
+} from "@typescript-eslint/utils/dist/ts-eslint";
+import typeUtils from "./utils/type-checking";
+const { getType, isFileField } = typeUtils;
 
-module.exports = {
+export default {
   meta: {
     type: "problem",
     docs: {
@@ -17,28 +26,34 @@ module.exports = {
     schema: [],
   },
 
-  create(context) {
+  create(context: RuleContext<"useFileComponent", never[]>) {
     const parserServices = ESLintUtils.getParserServices(context);
     if (!parserServices || !parserServices.program) return {};
     const checker = parserServices.program.getTypeChecker();
 
     return {
-      JSXOpeningElement(node) {
-        if (node.name.name !== "a") return;
+      JSXOpeningElement(node: TSESTree.JSXOpeningElement) {
+        if (
+          node.name.type !== AST_NODE_TYPES.JSXIdentifier ||
+          node.name.name !== "a"
+        )
+          return;
 
         // Find the `href` attribute
         const hrefAttr = node.attributes.find(
-          (attr) => attr.type === "JSXAttribute" && attr.name.name === "href"
+          (attr): attr is TSESTree.JSXAttribute =>
+            attr.type === AST_NODE_TYPES.JSXAttribute &&
+            attr.name.type === AST_NODE_TYPES.JSXIdentifier &&
+            attr.name.name === "href"
         );
         if (
-          !hrefAttr ||
-          !hrefAttr.value ||
-          hrefAttr.value.type !== "JSXExpressionContainer"
+          !hrefAttr?.value ||
+          hrefAttr.value.type !== AST_NODE_TYPES.JSXExpressionContainer
         )
           return;
 
         const expression = hrefAttr.value.expression;
-        if (expression.type !== "MemberExpression") return;
+        if (expression.type !== AST_NODE_TYPES.MemberExpression) return;
 
         const tsNode = parserServices.esTreeNodeToTSNodeMap.get(
           expression.object
@@ -51,15 +66,16 @@ module.exports = {
         const type = getType(tsNode, checker);
 
         if (isFileField(type)) {
-          let fieldName = expression;
+          let fieldName = expression as TSESTree.MemberExpression;
 
           // Step back to remove ".value" if it exists
-          while (fieldName.type === "MemberExpression") {
+          while (fieldName.type === AST_NODE_TYPES.MemberExpression) {
             if (
-              fieldName.property.name === "value" ||
-              fieldName.property.name === "src"
+              fieldName.property.type === AST_NODE_TYPES.Identifier &&
+              (fieldName.property.name === "value" ||
+                fieldName.property.name === "src")
             ) {
-              fieldName = fieldName.object; // Step back to remove ".value" or ".src"
+              fieldName = fieldName.object as TSESTree.MemberExpression;
             } else {
               break;
             }
@@ -71,9 +87,9 @@ module.exports = {
             node,
             messageId: "useFileComponent",
             data: { fieldName: fieldNameText },
-            fix(fixer) {
+            fix(fixer: RuleFixer) {
               return fixer.replaceText(
-                node.parent,
+                node.parent as TSESTree.JSXElement,
                 `<File field={${fieldNameText}} />`
               );
             },
