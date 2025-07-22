@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.4] - 2024-03-20
+
+### Fixed
+
+- Enhanced type checking for `Field<String>` to better handle various string type variations
+- Improved string literal type detection in type checking utilities
+- Added support for union and intersection types containing string in field type checks
+
+## [1.1.3] - 2024-03-19
+
+### Fixed
+
+- Resolved npm publish errors due to version conflicts
+- Fixed TypeScript compilation issues in build process
+- Improved error handling in type checking utilities
+
+## [1.1.2] - 2024-03-19
+
+### Fixed
+
+- Resolved npm publish errors due to version conflicts
+- Fixed TypeScript compilation issues in build process
+- Improved error handling in type checking utilities
+
 ## [1.1.0] - 2024-03-19
 
 ### Added

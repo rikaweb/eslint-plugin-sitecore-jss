@@ -8,6 +8,7 @@ import {
   RuleFixer,
 } from "@typescript-eslint/utils/dist/ts-eslint";
 import typeUtils from "./utils/type-checking";
+import logging from "./utils/logging";
 const { getType, isFieldString, isTextField } = typeUtils;
 
 export default {
@@ -50,6 +51,12 @@ export default {
             if (!tsNode) return;
 
             const type = getType(tsNode, checker);
+            logging.log(
+              "Checking type for field:",
+              context.getSourceCode().getText(child.expression)
+            );
+            logging.logType(type, "Field type");
+
             if (isFieldString(type) || isTextField(type)) {
               let fieldName = child.expression as TSESTree.MemberExpression;
               while (fieldName.type === AST_NODE_TYPES.MemberExpression) {
