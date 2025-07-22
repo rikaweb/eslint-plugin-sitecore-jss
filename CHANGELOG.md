@@ -85,5 +85,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - N/A (Initial Release)
 
+[1.1.4]: https://github.com/rikaweb/eslint-plugin-sitecore-jss/compare/v1.1.3...v1.1.4
+[1.1.3]: https://github.com/rikaweb/eslint-plugin-sitecore-jss/compare/v1.1.2...v1.1.3
 [1.1.0]: https://github.com/rikaweb/eslint-plugin-sitecore-jss/compare/v1.0.0-beta.1...v1.1.0
 [1.0.0-beta.1]: https://github.com/rikaweb/eslint-plugin-sitecore-jss/releases/tag/v1.0.0-beta.1
