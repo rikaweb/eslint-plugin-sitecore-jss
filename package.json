@@ -1,6 +1,6 @@
 {
   "name": "eslint-plugin-sitecore-jss",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "description": "An ESLint plugin to enforce correct usage of Sitecore JSS components",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

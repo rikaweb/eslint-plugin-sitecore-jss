@@ -22,12 +22,21 @@ export default {
     messages: {
       useRichTextComponent:
         "Use `<RichText field={{fieldName}} tag='{{tagName}}' />` instead of `{props.fields.body.value}` inside `<{{tagName}}>`. `RichTextField` should always use `<RichText />`.",
+      avoidNestedPTags:
+        "RichTextField in `<p>` tags creates nested `<p>` elements which is invalid HTML. Use `<RichText field={{fieldName}} />` or change the wrapper to `<div>`.",
+      avoidRichTextPTag:
+        'Using `<RichText>` with `tag="p"` creates nested `<p>` elements since Sitecore automatically adds `<p>` tags. Remove the `tag` attribute or use `tag="div"`.',
     },
     fixable: "code",
     schema: [],
   },
 
-  create(context: RuleContext<"useRichTextComponent", never[]>) {
+  create(
+    context: RuleContext<
+      "useRichTextComponent" | "avoidNestedPTags" | "avoidRichTextPTag",
+      never[]
+    >
+  ) {
     const parserServices = ESLintUtils.getParserServices(context);
     if (!parserServices || !parserServices.program) return {};
     const checker = parserServices.program.getTypeChecker();
@@ -36,6 +45,36 @@ export default {
       JSXOpeningElement(node: TSESTree.JSXOpeningElement) {
         if (node.name.type !== AST_NODE_TYPES.JSXIdentifier) return;
         const tagName = node.name.name;
+
+        // Check for RichText component with tag="p"
+        if (tagName === "RichText") {
+          const tagAttribute = node.attributes.find(
+            (attr): attr is TSESTree.JSXAttribute =>
+              attr.type === AST_NODE_TYPES.JSXAttribute &&
+              attr.name.type === AST_NODE_TYPES.JSXIdentifier &&
+              attr.name.name === "tag"
+          );
+
+          if (
+            tagAttribute?.value &&
+            tagAttribute.value.type === AST_NODE_TYPES.Literal &&
+            tagAttribute.value.value === "p"
+          ) {
+            context.report({
+              node,
+              messageId: "avoidRichTextPTag",
+              fix(fixer: RuleFixer) {
+                // Auto-fix: remove the tag="p" attribute
+                return fixer.removeRange([
+                  tagAttribute.range![0] - 1, // Include the space before the attribute
+                  tagAttribute.range![1],
+                ]);
+              },
+            });
+          }
+          return; // Don't process RichText components further
+        }
+
         const parentElement = node.parent as TSESTree.JSXElement;
         if (!parentElement?.children) return;
 
@@ -64,17 +103,35 @@ export default {
               }
               const fieldNameText = context.getSourceCode().getText(fieldName);
 
-              context.report({
-                node,
-                messageId: "useRichTextComponent",
-                data: { tagName, fieldName: fieldNameText },
-                fix(fixer: RuleFixer) {
-                  return fixer.replaceText(
-                    parentElement,
-                    `<RichText field={${fieldNameText}} tag="${tagName}" />`
-                  );
-                },
-              });
+              // Special case: if RichTextField is inside a <p> tag, warn about nested <p> tags
+              if (tagName === "p") {
+                context.report({
+                  node,
+                  messageId: "avoidNestedPTags",
+                  data: { fieldName: fieldNameText },
+                  fix(fixer: RuleFixer) {
+                    // Auto-fix: use <RichText> without specifying tag (defaults to div)
+                    // or explicitly use div to avoid nested p tags
+                    return fixer.replaceText(
+                      parentElement,
+                      `<RichText field={${fieldNameText}} />`
+                    );
+                  },
+                });
+              } else {
+                // Original behavior for other tags
+                context.report({
+                  node,
+                  messageId: "useRichTextComponent",
+                  data: { tagName, fieldName: fieldNameText },
+                  fix(fixer: RuleFixer) {
+                    return fixer.replaceText(
+                      parentElement,
+                      `<RichText field={${fieldNameText}} tag="${tagName}" />`
+                    );
+                  },
+                });
+              }
             }
           }
         });
