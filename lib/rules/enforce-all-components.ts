@@ -13,6 +13,8 @@ import enforceFileComponent from "./enforce-file-component";
 type MessageIds =
   | "useTextComponent"
   | "useRichTextComponent"
+  | "avoidNestedPTags"
+  | "avoidRichTextPTag"
   | "useImageComponent"
   | "useLinkComponent"
   | "useFileComponent";
