@@ -12,6 +12,8 @@ A custom ESLint plugin to enforce best practices when using Sitecore JSS compone
 - **Prevents raw JSX usage for Sitecore fields**
 - **Suggests correct Sitecore JSS components automatically**
 - **Supports auto-fixing with `--fix`**
+- **Preserves HTML/JSX attributes during auto-fix** (v1.1.6+)
+- **Prevents invalid nested `<p>` tags** (v1.1.5+)
 - **Includes multiple individual rules**
 - **Ability to enable all rules at once**
 
@@ -91,14 +93,23 @@ Ensures that `RichTextField` is wrapped with `<RichText>`.
 **Incorrect:**
 
 ```jsx
-<div>{props.fields.body.value}</div>
+<div className="rich-text" id="content">
+  {props.fields.body.value}
+</div>
 ```
 
-**Correct:**
+**Correct (auto-fixed):**
 
 ```jsx
-<RichText field={props.fields.body} tag="div" />
+<RichText
+  field={props.fields.body}
+  tag="div"
+  className="rich-text"
+  id="content"
+/>
 ```
+
+**Note:** As of v1.1.6, all HTML/JSX attributes (className, id, style, data-\*, etc.) are automatically preserved during auto-fix!
 
 #### `enforce-image-component`
 
@@ -107,14 +118,26 @@ Ensures that `ImageField` is used with `<Image>` instead of `<img>`.
 **Incorrect:**
 
 ```jsx
-<img src={props.fields.image.value.src} alt={props.fields.image.value.alt} />
+<img
+  src={props.fields.image.value.src}
+  className="hero-image"
+  alt="Hero"
+  loading="lazy"
+/>
 ```
 
-**Correct:**
+**Correct (auto-fixed):**
 
 ```jsx
-<Image field={props.fields.image} />
+<Image
+  field={props.fields.image}
+  className="hero-image"
+  alt="Hero"
+  loading="lazy"
+/>
 ```
+
+**Note:** The `src` attribute is automatically removed (replaced by `field`), but all other attributes are preserved!
 
 #### `enforce-link-component`
 
@@ -123,16 +146,28 @@ Ensures that `LinkField` is used with `<Link>` instead of `<a>`.
 **Incorrect:**
 
 ```jsx
-<a href={props.fields.externalLink.value.href}>
-  {props.fields.externalLink.value.text}
+<a
+  href={props.fields.externalLink.value.href}
+  className="btn btn-primary"
+  target="_blank"
+>
+  Click Here
 </a>
 ```
 
-**Correct:**
+**Correct (auto-fixed):**
 
 ```jsx
-<Link field={props.fields.externalLink} />
+<Link
+  field={props.fields.externalLink}
+  className="btn btn-primary"
+  target="_blank"
+>
+  Click Here
+</Link>
 ```
+
+**Note:** The `href` attribute is automatically removed (replaced by `field`), but all other attributes are preserved!
 
 #### `enforce-file-component`
 

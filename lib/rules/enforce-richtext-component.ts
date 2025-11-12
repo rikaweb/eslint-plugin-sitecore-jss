@@ -103,6 +103,21 @@ export default {
               }
               const fieldNameText = context.getSourceCode().getText(fieldName);
 
+              // Extract all attributes from the opening element
+              const attributes = node.attributes
+                .map((attr) => {
+                  if (attr.type === AST_NODE_TYPES.JSXAttribute) {
+                    return context.getSourceCode().getText(attr);
+                  } else if (attr.type === AST_NODE_TYPES.JSXSpreadAttribute) {
+                    return context.getSourceCode().getText(attr);
+                  }
+                  return "";
+                })
+                .filter((attr) => attr !== "")
+                .join(" ");
+
+              const attributesStr = attributes ? ` ${attributes}` : "";
+
               // Special case: if RichTextField is inside a <p> tag, warn about nested <p> tags
               if (tagName === "p") {
                 context.report({
@@ -114,7 +129,7 @@ export default {
                     // or explicitly use div to avoid nested p tags
                     return fixer.replaceText(
                       parentElement,
-                      `<RichText field={${fieldNameText}} />`
+                      `<RichText field={${fieldNameText}}${attributesStr} />`
                     );
                   },
                 });
@@ -127,7 +142,7 @@ export default {
                   fix(fixer: RuleFixer) {
                     return fixer.replaceText(
                       parentElement,
-                      `<RichText field={${fieldNameText}} tag="${tagName}" />`
+                      `<RichText field={${fieldNameText}} tag="${tagName}"${attributesStr} />`
                     );
                   },
                 });

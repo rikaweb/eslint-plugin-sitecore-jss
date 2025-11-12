@@ -71,6 +71,21 @@ export default {
               }
               const fieldNameText = context.getSourceCode().getText(fieldName);
 
+              // Extract all attributes from the opening element
+              const attributes = node.attributes
+                .map((attr) => {
+                  if (attr.type === AST_NODE_TYPES.JSXAttribute) {
+                    return context.getSourceCode().getText(attr);
+                  } else if (attr.type === AST_NODE_TYPES.JSXSpreadAttribute) {
+                    return context.getSourceCode().getText(attr);
+                  }
+                  return "";
+                })
+                .filter((attr) => attr !== "")
+                .join(" ");
+
+              const attributesStr = attributes ? ` ${attributes}` : "";
+
               context.report({
                 node,
                 messageId: "useTextComponent",
@@ -78,7 +93,7 @@ export default {
                 fix(fixer: RuleFixer) {
                   return fixer.replaceText(
                     parentElement,
-                    `<Text field={${fieldNameText}} tag="${tagName}" />`
+                    `<Text field={${fieldNameText}} tag="${tagName}"${attributesStr} />`
                   );
                 },
               });
