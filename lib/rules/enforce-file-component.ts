@@ -84,6 +84,22 @@ export default {
 
           const fieldNameText = context.getSourceCode().getText(fieldName);
 
+          // Extract all attributes from the opening element except 'href'
+          const attributes = node.attributes
+            .filter((attr) => {
+              if (attr.type === AST_NODE_TYPES.JSXAttribute) {
+                return (
+                  attr.name.type === AST_NODE_TYPES.JSXIdentifier &&
+                  attr.name.name !== "href"
+                );
+              }
+              return attr.type === AST_NODE_TYPES.JSXSpreadAttribute;
+            })
+            .map((attr) => context.getSourceCode().getText(attr))
+            .join(" ");
+
+          const attributesStr = attributes ? ` ${attributes}` : "";
+
           context.report({
             node,
             messageId: "useFileComponent",
@@ -91,7 +107,7 @@ export default {
             fix(fixer: RuleFixer) {
               return fixer.replaceText(
                 node.parent as TSESTree.JSXElement,
-                `<File field={${fieldNameText}} />`
+                `<File field={${fieldNameText}}${attributesStr} />`
               );
             },
           });

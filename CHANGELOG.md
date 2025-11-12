@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.6] - 2025-11-12
+
+### Added
+
+- **Attribute Preservation in Auto-Fix**: All rules now preserve HTML/JSX attributes when auto-fixing code
+  - `enforce-richtext-component`: Preserves `className`, `id`, `style`, and all other attributes when converting to `<RichText>`
+  - `enforce-text-component`: Preserves all attributes when converting to `<Text>`
+  - `enforce-image-component`: Preserves all attributes except `src` when converting to `<Image>`
+  - `enforce-link-component`: Preserves all attributes except `href` when converting to `<Link>`
+  - `enforce-file-component`: Preserves all attributes except `href` when converting to `<File>`
+  - Supports JSX spread attributes (`{...props}`)
+
+### Changed
+
+- Auto-fix behavior now intelligently preserves existing attributes instead of removing them
+- Attributes that conflict with the `field` prop (like `src`, `href`) are automatically filtered out
+
 ## [1.1.5] - 2025-07-22
 
 ### Added
@@ -102,6 +119,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - N/A (Initial Release)
 
+[1.1.6]: https://github.com/rikaweb/eslint-plugin-sitecore-jss/compare/v1.1.5...v1.1.6
 [1.1.5]: https://github.com/rikaweb/eslint-plugin-sitecore-jss/compare/v1.1.4...v1.1.5
 [1.1.4]: https://github.com/rikaweb/eslint-plugin-sitecore-jss/compare/v1.1.3...v1.1.4
 [1.1.3]: https://github.com/rikaweb/eslint-plugin-sitecore-jss/compare/v1.1.2...v1.1.3

@@ -79,6 +79,22 @@ export default {
           const fieldNameText = context.getSourceCode().getText(fieldName);
           const parentElement = node.parent as TSESTree.JSXElement;
 
+          // Extract all attributes from the opening element except 'src'
+          const attributes = node.attributes
+            .filter((attr) => {
+              if (attr.type === AST_NODE_TYPES.JSXAttribute) {
+                return (
+                  attr.name.type === AST_NODE_TYPES.JSXIdentifier &&
+                  attr.name.name !== "src"
+                );
+              }
+              return attr.type === AST_NODE_TYPES.JSXSpreadAttribute;
+            })
+            .map((attr) => context.getSourceCode().getText(attr))
+            .join(" ");
+
+          const attributesStr = attributes ? ` ${attributes}` : "";
+
           context.report({
             node,
             messageId: "useImageComponent",
@@ -86,7 +102,7 @@ export default {
             fix(fixer: RuleFixer) {
               return fixer.replaceText(
                 parentElement,
-                `<Image field={${fieldNameText}} />`
+                `<Image field={${fieldNameText}}${attributesStr} />`
               );
             },
           });
