@@ -110,3 +110,8 @@ Rough size: phases 0–2 one session, phases 3–4 one to two sessions, phases 5
 - New rules: `enforce-date-field`, `prefer-next-image`, attribute reads like `alt={image.value.alt}` (Track B).
 - Claude Code skill / slash commands, `AGENTS.md` generator, MCP (Track C).
 - ESM build output (not needed by ESLint; revisit if a consumer asks).
+
+## Progress log
+
+- 2026-10-15 — Phase 0 done (`de61417`): archive, LICENSE, lockfile tracked.
+- 2026-10-15 — Phase 1 done: deps upgraded (eslint 10.12, typescript-eslint 8.71, TS 5.9, vitest 5), `package.json` matrix, `lib/index.ts` flat + legacy configs with `meta`, `eslint.config.mjs` for the repo. Verified by packing the tarball and installing it into throwaway projects on ESLint 8.57.1 (legacy `extends`), 9.39.5 and 10.12.0 (flat config): each reports the same 10 warnings on the 16-case sample; `strict` variants report 10 errors.

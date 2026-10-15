@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (v2 work in progress on the `v2` branch)
+
+- **Breaking:** supported toolchain is now ESLint `^8.57.0 || ^9.0.0 || ^10.0.0`, `@typescript-eslint/parser` `^7 || ^8`, TypeScript `>=4.8.4 <6.1.0`, Node `^18.18 || ^20.9 || >=21.1`.
+- `@typescript-eslint/utils` is a runtime dependency (it was only a devDependency, so consumers relied on hoisting).
+- Rules use `context.sourceCode` instead of the removed `context.getSourceCode()` (required by ESLint 10) and import `ts-eslint` types from the public `@typescript-eslint/utils/ts-eslint` entry point.
+- New flat configs `flat/recommended`, `flat/strict` and `flat/all` for ESLint 9+; legacy `recommended` and `all` kept, plus a legacy `strict`.
+- `package.json` gains `exports`, `sideEffects: false`, `homepage`/`bugs`; repository lint moved to `eslint.config.mjs`.
+- Repo hygiene: generated release/blog markdown moved to `docs/archive/`, MIT `LICENSE` added, `package-lock.json` tracked.
+
 ## [1.1.6] - 2025-11-12
 
 ### Added

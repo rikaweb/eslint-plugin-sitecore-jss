@@ -3,7 +3,7 @@ import {
   RuleContext,
   RuleListener,
   RuleFunction,
-} from "@typescript-eslint/utils/dist/ts-eslint";
+} from "@typescript-eslint/utils/ts-eslint";
 import enforceTextComponent from "./enforce-text-component";
 import enforceRichTextComponent from "./enforce-richtext-component";
 import enforceImageComponent from "./enforce-image-component";

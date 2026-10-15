@@ -6,7 +6,7 @@ import {
 import {
   RuleContext,
   RuleFixer,
-} from "@typescript-eslint/utils/dist/ts-eslint";
+} from "@typescript-eslint/utils/ts-eslint";
 import typeUtils from "./utils/type-checking";
 const { getType, isFileField } = typeUtils;
 
@@ -82,7 +82,7 @@ export default {
             }
           }
 
-          const fieldNameText = context.getSourceCode().getText(fieldName);
+          const fieldNameText = context.sourceCode.getText(fieldName);
 
           // Extract all attributes from the opening element except 'href'
           const attributes = node.attributes
@@ -95,7 +95,7 @@ export default {
               }
               return attr.type === AST_NODE_TYPES.JSXSpreadAttribute;
             })
-            .map((attr) => context.getSourceCode().getText(attr))
+            .map((attr) => context.sourceCode.getText(attr))
             .join(" ");
 
           const attributesStr = attributes ? ` ${attributes}` : "";

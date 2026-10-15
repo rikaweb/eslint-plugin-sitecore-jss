@@ -6,7 +6,7 @@ import {
 import {
   RuleContext,
   RuleFixer,
-} from "@typescript-eslint/utils/dist/ts-eslint";
+} from "@typescript-eslint/utils/ts-eslint";
 import typeUtils from "./utils/type-checking";
 const { getType, isLinkField } = typeUtils;
 
@@ -58,7 +58,7 @@ export default {
         if (expression.type !== AST_NODE_TYPES.MemberExpression) {
           console.warn(
             "⚠️ `href` is not a MemberExpression, skipping:",
-            context.getSourceCode().getText(expression)
+            context.sourceCode.getText(expression)
           );
           return;
         }
@@ -87,7 +87,7 @@ export default {
             }
           }
 
-          const fieldNameText = context.getSourceCode().getText(fieldName);
+          const fieldNameText = context.sourceCode.getText(fieldName);
           const parentElement = node.parent as TSESTree.JSXElement;
 
           // Extract all attributes from the opening element except 'href'
@@ -101,7 +101,7 @@ export default {
               }
               return attr.type === AST_NODE_TYPES.JSXSpreadAttribute;
             })
-            .map((attr) => context.getSourceCode().getText(attr))
+            .map((attr) => context.sourceCode.getText(attr))
             .join(" ");
 
           const attributesStr = attributes ? ` ${attributes}` : "";

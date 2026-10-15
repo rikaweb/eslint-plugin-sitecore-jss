@@ -6,7 +6,7 @@ import {
 import {
   RuleContext,
   RuleFixer,
-} from "@typescript-eslint/utils/dist/ts-eslint";
+} from "@typescript-eslint/utils/ts-eslint";
 import typeUtils from "./utils/type-checking";
 import logging from "./utils/logging";
 const { getType, isFieldString, isTextField } = typeUtils;
@@ -53,7 +53,7 @@ export default {
             const type = getType(tsNode, checker);
             logging.log(
               "Checking type for field:",
-              context.getSourceCode().getText(child.expression)
+              context.sourceCode.getText(child.expression)
             );
             logging.logType(type, "Field type");
 
@@ -69,15 +69,15 @@ export default {
                   break;
                 }
               }
-              const fieldNameText = context.getSourceCode().getText(fieldName);
+              const fieldNameText = context.sourceCode.getText(fieldName);
 
               // Extract all attributes from the opening element
               const attributes = node.attributes
                 .map((attr) => {
                   if (attr.type === AST_NODE_TYPES.JSXAttribute) {
-                    return context.getSourceCode().getText(attr);
+                    return context.sourceCode.getText(attr);
                   } else if (attr.type === AST_NODE_TYPES.JSXSpreadAttribute) {
-                    return context.getSourceCode().getText(attr);
+                    return context.sourceCode.getText(attr);
                   }
                   return "";
                 })
