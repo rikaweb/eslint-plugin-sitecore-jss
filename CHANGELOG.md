@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (v2 work in progress on the `v2` branch)
+
+- Test suite: vitest 5 + `@typescript-eslint/rule-tester` 8 with type-aware fixtures (`tests/fixtures/node_modules` holds type-only stand-ins for `@sitecore-jss/sitecore-jss-nextjs` and `@sitecore-content-sdk/nextjs`). Current behaviour is covered per rule and for the plugin entry; every known bug is captured in `tests/known-bugs/` as an `it.fails` case that asserts the desired behaviour.
+
 ### Changed (v2 work in progress on the `v2` branch)
 
 - **Breaking:** supported toolchain is now ESLint `^8.57.0 || ^9.0.0 || ^10.0.0`, `@typescript-eslint/parser` `^7 || ^8`, TypeScript `>=4.8.4 <6.1.0`, Node `^18.18 || ^20.9 || >=21.1`.
