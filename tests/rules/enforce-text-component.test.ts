@@ -1,12 +1,11 @@
 import { describe } from "vitest";
 import rule from "../../lib/rules/enforce-text-component";
-import { asRuleModule, createRuleTester, SDK, withProps } from "../helpers/fixtures";
+import { createRuleTester, SDK, withProps } from "../helpers/fixtures";
 
 const ruleTester = createRuleTester();
-const textRule = asRuleModule<"useTextComponent">(rule);
 
 describe("enforce-text-component", () => {
-  ruleTester.run("enforce-text-component", textRule, {
+  ruleTester.run("enforce-text-component", rule, {
     valid: [
       {
         name: "already uses <Text>",
@@ -27,6 +26,10 @@ describe("enforce-text-component", () => {
       {
         name: "Field<number> is not Field<string>",
         code: withProps(`declare const count: Field<number>;\n<span>{count.value}</span>;`),
+      },
+      {
+        name: "a value derived from the field is not the field",
+        code: withProps(`<p>{props.fields.title.value.length}</p>;`),
       },
       {
         name: "field passed as a prop, not rendered as a child",
@@ -66,6 +69,12 @@ describe("enforce-text-component", () => {
         errors: [{ messageId: "useTextComponent" }],
       },
       {
+        name: "a comment sibling does not block the fix",
+        code: withProps(`<h1>{/* page heading */}{props.fields.title.value}</h1>;`),
+        output: withProps(`<Text field={props.fields.title} tag="h1" />;`),
+        errors: [{ messageId: "useTextComponent" }],
+      },
+      {
         name: "spread attributes preserved",
         code: withProps(
           `declare const rest: Record<string, unknown>;\n<p id="x" {...rest}>{props.fields.title.value}</p>;`
@@ -74,6 +83,77 @@ describe("enforce-text-component", () => {
           `declare const rest: Record<string, unknown>;\n<Text field={props.fields.title} tag="p" id="x" {...rest} />;`
         ),
         errors: [{ messageId: "useTextComponent" }],
+      },
+      {
+        name: "optional chaining on the field is detected",
+        code: withProps(`<p>{props.fields.title?.value}</p>;`),
+        output: withProps(`<Text field={props.fields.title} tag="p" />;`),
+        errors: [{ messageId: "useTextComponent" }],
+      },
+      {
+        name: "optional chaining on the fields object keeps the chain in the fix",
+        code: withProps(
+          `declare const fields: Props["fields"] | undefined;\n<p>{fields?.title.value}</p>;`
+        ),
+        output: withProps(
+          `declare const fields: Props["fields"] | undefined;\n<Text field={fields?.title} tag="p" />;`
+        ),
+        errors: [{ messageId: "useTextComponent" }],
+      },
+      {
+        name: "optional field type",
+        code: withProps(
+          `declare const subtitle: Field<string> | undefined;\n<p>{subtitle?.value}</p>;`
+        ),
+        output: withProps(
+          `declare const subtitle: Field<string> | undefined;\n<Text field={subtitle} tag="p" />;`
+        ),
+        errors: [{ messageId: "useTextComponent" }],
+      },
+      {
+        name: "non-null assertion and type assertion are looked through",
+        code: withProps(`<p>{props.fields.title.value!}</p>;\n<p>{props.fields.title.value as string}</p>;`),
+        output: withProps(
+          `<Text field={props.fields.title} tag="p" />;\n<Text field={props.fields.title} tag="p" />;`
+        ),
+        errors: [{ messageId: "useTextComponent" }, { messageId: "useTextComponent" }],
+      },
+      {
+        name: "field object rendered without .value",
+        code: withProps(`<p>{props.fields.title}</p>;`),
+        output: withProps(`<Text field={props.fields.title} tag="p" />;`),
+        errors: [{ messageId: "useTextComponent" }],
+      },
+      {
+        name: "field held in a plain variable",
+        code: withProps(`declare const title: Field<string>;\n<p>{title.value}</p>;`),
+        output: withProps(`declare const title: Field<string>;\n<Text field={title} tag="p" />;`),
+        errors: [{ messageId: "useTextComponent", data: { tagName: "p", fieldName: "title" } }],
+      },
+      {
+        name: "mixed children: report without a fix",
+        code: withProps(`<h3>Hello {props.fields.title.value}</h3>;`),
+        output: null,
+        errors: [{ messageId: "useTextComponent" }],
+      },
+      {
+        name: "two fields in one element: both reported, no fix",
+        code: withProps(`<p>{props.fields.title.value} {props.fields.heading.value}</p>;`),
+        output: null,
+        errors: [{ messageId: "useTextComponent" }, { messageId: "useTextComponent" }],
+      },
+      {
+        name: "custom component wrapper: report without a fix",
+        code: withProps(
+          `declare const Typography: (p: { children?: unknown }) => unknown;\n<Typography>{props.fields.title.value}</Typography>;`
+        ),
+        output: null,
+        errors: [
+          {
+            messageId: "useTextComponentInWrapper",
+            data: { tagName: "Typography", fieldName: "props.fields.title" },
+          },
+        ],
       },
       {
         name: "Content SDK field types are detected",

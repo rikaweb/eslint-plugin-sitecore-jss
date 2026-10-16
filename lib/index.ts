@@ -1,10 +1,10 @@
 import type { TSESLint } from "@typescript-eslint/utils";
 import enforceAllComponents from "./rules/enforce-all-components";
-import enforceTextComponent from "./rules/enforce-text-component";
-import enforceRichTextComponent from "./rules/enforce-richtext-component";
+import enforceFileComponent from "./rules/enforce-file-component";
 import enforceImageComponent from "./rules/enforce-image-component";
 import enforceLinkComponent from "./rules/enforce-link-component";
-import enforceFileComponent from "./rules/enforce-file-component";
+import enforceRichTextComponent from "./rules/enforce-richtext-component";
+import enforceTextComponent from "./rules/enforce-text-component";
 
 // package.json lives outside rootDir, so read it at runtime instead of importing it.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -12,20 +12,14 @@ const pkg = require("../package.json") as { name: string; version: string };
 
 const PLUGIN_NAME = "sitecore-jss";
 
-// Rules are still plain object literals; Phase 3 moves them to ESLintUtils.RuleCreator,
-// at which point this cast goes away.
-function asRule(rule: unknown): TSESLint.LooseRuleDefinition {
-  return rule as TSESLint.LooseRuleDefinition;
-}
-
 const rules: Record<string, TSESLint.LooseRuleDefinition> = {
-  "enforce-text-component": asRule(enforceTextComponent),
-  "enforce-richtext-component": asRule(enforceRichTextComponent),
-  "enforce-image-component": asRule(enforceImageComponent),
-  "enforce-link-component": asRule(enforceLinkComponent),
-  "enforce-file-component": asRule(enforceFileComponent),
+  "enforce-text-component": enforceTextComponent,
+  "enforce-richtext-component": enforceRichTextComponent,
+  "enforce-image-component": enforceImageComponent,
+  "enforce-link-component": enforceLinkComponent,
+  "enforce-file-component": enforceFileComponent,
   // Deprecated meta-rule kept for backward compatibility; prefer the configs below.
-  "enforce-all-components": asRule(enforceAllComponents),
+  "enforce-all-components": enforceAllComponents,
 };
 
 type Severity = "warn" | "error";

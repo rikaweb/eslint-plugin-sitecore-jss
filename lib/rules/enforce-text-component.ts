@@ -1,106 +1,65 @@
-import {
-  ESLintUtils,
-  TSESTree,
-  AST_NODE_TYPES,
-} from "@typescript-eslint/utils";
-import {
-  RuleContext,
-  RuleFixer,
-} from "@typescript-eslint/utils/ts-eslint";
-import typeUtils from "./utils/type-checking";
-import logging from "./utils/logging";
-const { getType, isFieldString, isTextField } = typeUtils;
+import { ESLintUtils } from "@typescript-eslint/utils";
+import { createRule } from "../utils/create-rule";
+import { findFieldChildren } from "../utils/field-children";
+import { serializeAttributes } from "../utils/jsx";
+import { isTextLike } from "../utils/type-checking";
 
-export default {
-  defaultOptions: [] as never[],
+type MessageIds = "useTextComponent" | "useTextComponentInWrapper";
+
+export default createRule<[], MessageIds>({
+  name: "enforce-text-component",
   meta: {
     type: "problem",
     docs: {
       description:
-        "Ensure `<Text>` is used instead of raw JSX elements for `Field<string>`",
-      recommended: "recommended",
-    },
-    messages: {
-      useTextComponent:
-        "Use `<Text field={{fieldName}} tag='{{tagName}}' />` instead of `{props.fields.title.value}` inside `<{{tagName}}>`. If using `Field<string>`, `<RichText field={{fieldName}} />` is also allowed.",
+        "Render Sitecore text fields (`Field<string>`, `TextField`) with `<Text>` instead of reading `.value` inside a JSX element",
+      recommended: true,
+      requiresTypeChecking: true,
     },
     fixable: "code",
+    messages: {
+      useTextComponent:
+        'Render `{{fieldName}}` with `<Text field={{{fieldName}}} tag="{{tagName}}" />` instead of reading its value inside `<{{tagName}}>`, so the field stays editable in Sitecore.',
+      useTextComponentInWrapper:
+        "`<{{tagName}}>` renders the value of `{{fieldName}}` directly. Pass the field to `<Text field={{{fieldName}}} />` (or let `{{tagName}}` accept the field) so it stays editable in Sitecore.",
+    },
     schema: [],
   },
-
-  create(context: RuleContext<"useTextComponent", never[]>) {
-    const parserServices = ESLintUtils.getParserServices(context);
-    if (!parserServices || !parserServices.program) return {};
-    const checker = parserServices.program.getTypeChecker();
+  defaultOptions: [],
+  create(context) {
+    const services = ESLintUtils.getParserServices(context);
+    const checker = services.program.getTypeChecker();
+    const { sourceCode } = context;
 
     return {
-      JSXOpeningElement(node: TSESTree.JSXOpeningElement) {
-        if (node.name.type !== AST_NODE_TYPES.JSXIdentifier) return;
-        const tagName = node.name.name;
-        const parentElement = node.parent as TSESTree.JSXElement;
-        if (!parentElement?.children) return;
-
-        parentElement.children.forEach((child: TSESTree.JSXChild) => {
-          if (
-            child.type === AST_NODE_TYPES.JSXExpressionContainer &&
-            child.expression.type === AST_NODE_TYPES.MemberExpression
-          ) {
-            const tsNode = parserServices.esTreeNodeToTSNodeMap.get(
-              child.expression.object
-            );
-            if (!tsNode) return;
-
-            const type = getType(tsNode, checker);
-            logging.log(
-              "Checking type for field:",
-              context.sourceCode.getText(child.expression)
-            );
-            logging.logType(type, "Field type");
-
-            if (isFieldString(type) || isTextField(type)) {
-              let fieldName = child.expression as TSESTree.MemberExpression;
-              while (fieldName.type === AST_NODE_TYPES.MemberExpression) {
-                if (
-                  fieldName.property.type === AST_NODE_TYPES.Identifier &&
-                  fieldName.property.name === "value"
-                ) {
-                  fieldName = fieldName.object as TSESTree.MemberExpression;
-                } else {
-                  break;
-                }
-              }
-              const fieldNameText = context.sourceCode.getText(fieldName);
-
-              // Extract all attributes from the opening element
-              const attributes = node.attributes
-                .map((attr) => {
-                  if (attr.type === AST_NODE_TYPES.JSXAttribute) {
-                    return context.sourceCode.getText(attr);
-                  } else if (attr.type === AST_NODE_TYPES.JSXSpreadAttribute) {
-                    return context.sourceCode.getText(attr);
-                  }
-                  return "";
-                })
-                .filter((attr) => attr !== "")
-                .join(" ");
-
-              const attributesStr = attributes ? ` ${attributes}` : "";
-
-              context.report({
-                node,
-                messageId: "useTextComponent",
-                data: { tagName, fieldName: fieldNameText },
-                fix(fixer: RuleFixer) {
-                  return fixer.replaceText(
-                    parentElement,
-                    `<Text field={${fieldNameText}} tag="${tagName}"${attributesStr} />`
-                  );
-                },
-              });
-            }
+      JSXElement(element) {
+        const matches = findFieldChildren(sourceCode, services, element, (type) =>
+          isTextLike(type, checker)
+        );
+        for (const { opening, tagName, intrinsic, fieldText, soleChild } of matches) {
+          if (!intrinsic) {
+            context.report({
+              node: opening,
+              messageId: "useTextComponentInWrapper",
+              data: { tagName, fieldName: fieldText },
+            });
+            continue;
           }
-        });
+          context.report({
+            node: opening,
+            messageId: "useTextComponent",
+            data: { tagName, fieldName: fieldText },
+            // Only replace the element when the field is its sole content; otherwise a fix would drop text.
+            fix: soleChild
+              ? (fixer) =>
+                  fixer.replaceText(
+                    element,
+                    `<Text field={${fieldText}} tag="${tagName}"${serializeAttributes(sourceCode, opening.attributes)} />`
+                  )
+              : null,
+          });
+        }
       },
     };
   },
-};
+});

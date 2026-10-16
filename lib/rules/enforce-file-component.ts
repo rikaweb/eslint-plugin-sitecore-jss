@@ -1,118 +1,59 @@
-import {
-  ESLintUtils,
-  TSESTree,
-  AST_NODE_TYPES,
-} from "@typescript-eslint/utils";
-import {
-  RuleContext,
-  RuleFixer,
-} from "@typescript-eslint/utils/ts-eslint";
-import typeUtils from "./utils/type-checking";
-const { getType, isFileField } = typeUtils;
+import { ESLintUtils } from "@typescript-eslint/utils";
+import { buildAnchorReplacement } from "../utils/anchor";
+import { createRule } from "../utils/create-rule";
+import { getFieldExpression } from "../utils/fields";
+import { getAttribute, getAttributeExpression, isElementNamed } from "../utils/jsx";
+import { isFileField, resolveType } from "../utils/type-checking";
 
-export default {
-  defaultOptions: [] as never[],
+export default createRule<[], "useFileComponent">({
+  name: "enforce-file-component",
   meta: {
     type: "problem",
     docs: {
       description:
-        "Ensure `<File>` is used instead of raw `<a>` for `FileField`.",
-      recommended: "recommended",
-    },
-    messages: {
-      useFileComponent:
-        "Use `<File field={{fieldName}} />` instead of `<a>` for Sitecore file fields.",
+        "Render Sitecore file fields (`FileField`) with `<File>` instead of a raw `<a href={...}>`",
+      recommended: true,
+      requiresTypeChecking: true,
     },
     fixable: "code",
+    messages: {
+      useFileComponent:
+        "Use `<File field={{{fieldName}}} />` instead of `<a>` for the Sitecore file field `{{fieldName}}`, so the file link stays editable in Sitecore.",
+    },
     schema: [],
   },
-
-  create(context: RuleContext<"useFileComponent", never[]>) {
-    const parserServices = ESLintUtils.getParserServices(context);
-    if (!parserServices || !parserServices.program) return {};
-    const checker = parserServices.program.getTypeChecker();
+  defaultOptions: [],
+  create(context) {
+    const services = ESLintUtils.getParserServices(context);
+    const { sourceCode } = context;
 
     return {
-      JSXOpeningElement(node: TSESTree.JSXOpeningElement) {
-        if (
-          node.name.type !== AST_NODE_TYPES.JSXIdentifier ||
-          node.name.name !== "a"
-        )
-          return;
+      JSXElement(element) {
+        const opening = element.openingElement;
+        if (!isElementNamed(opening, "a")) return;
 
-        // Find the `href` attribute
-        const hrefAttr = node.attributes.find(
-          (attr): attr is TSESTree.JSXAttribute =>
-            attr.type === AST_NODE_TYPES.JSXAttribute &&
-            attr.name.type === AST_NODE_TYPES.JSXIdentifier &&
-            attr.name.name === "href"
-        );
-        if (
-          !hrefAttr?.value ||
-          hrefAttr.value.type !== AST_NODE_TYPES.JSXExpressionContainer
-        )
-          return;
+        const href = getAttribute(opening, "href");
+        const expression = href && getAttributeExpression(href);
+        if (!expression) return;
 
-        const expression = hrefAttr.value.expression;
-        if (expression.type !== AST_NODE_TYPES.MemberExpression) return;
+        const field = getFieldExpression(expression, ["src"]);
+        if (!field || !isFileField(resolveType(services, field))) return;
 
-        const tsNode = parserServices.esTreeNodeToTSNodeMap.get(
-          expression.object
-        );
-        if (!tsNode) {
-          console.warn("⚠️ TypeScript Node not found.");
-          return;
-        }
-
-        const type = getType(tsNode, checker);
-
-        if (isFileField(type)) {
-          let fieldName = expression as TSESTree.MemberExpression;
-
-          // Step back to remove ".value" if it exists
-          while (fieldName.type === AST_NODE_TYPES.MemberExpression) {
-            if (
-              fieldName.property.type === AST_NODE_TYPES.Identifier &&
-              (fieldName.property.name === "value" ||
-                fieldName.property.name === "src")
-            ) {
-              fieldName = fieldName.object as TSESTree.MemberExpression;
-            } else {
-              break;
-            }
-          }
-
-          const fieldNameText = context.sourceCode.getText(fieldName);
-
-          // Extract all attributes from the opening element except 'href'
-          const attributes = node.attributes
-            .filter((attr) => {
-              if (attr.type === AST_NODE_TYPES.JSXAttribute) {
-                return (
-                  attr.name.type === AST_NODE_TYPES.JSXIdentifier &&
-                  attr.name.name !== "href"
-                );
-              }
-              return attr.type === AST_NODE_TYPES.JSXSpreadAttribute;
-            })
-            .map((attr) => context.sourceCode.getText(attr))
-            .join(" ");
-
-          const attributesStr = attributes ? ` ${attributes}` : "";
-
-          context.report({
-            node,
-            messageId: "useFileComponent",
-            data: { fieldName: fieldNameText },
-            fix(fixer: RuleFixer) {
-              return fixer.replaceText(
-                node.parent as TSESTree.JSXElement,
-                `<File field={${fieldNameText}}${attributesStr} />`
-              );
-            },
-          });
-        }
+        const fieldText = sourceCode.getText(field);
+        context.report({
+          node: opening,
+          messageId: "useFileComponent",
+          data: { fieldName: fieldText },
+          fix: (fixer) =>
+            fixer.replaceText(
+              element,
+              buildAnchorReplacement(sourceCode, element, "File", fieldText, [
+                "title",
+                "displayName",
+              ])
+            ),
+        });
       },
     };
   },
-};
+});

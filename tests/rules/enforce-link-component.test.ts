@@ -1,12 +1,11 @@
 import { describe } from "vitest";
 import rule from "../../lib/rules/enforce-link-component";
-import { asRuleModule, createRuleTester, SDK, withProps } from "../helpers/fixtures";
+import { createRuleTester, SDK, withProps } from "../helpers/fixtures";
 
 const ruleTester = createRuleTester();
-const linkRule = asRuleModule<"useLinkComponent">(rule);
 
 describe("enforce-link-component", () => {
-  ruleTester.run("enforce-link-component", linkRule, {
+  ruleTester.run("enforce-link-component", rule, {
     valid: [
       {
         name: "literal href",
@@ -44,6 +43,38 @@ describe("enforce-link-component", () => {
         name: "self-closing anchor",
         code: withProps(`<a href={props.fields.link.value.href} />;`),
         output: withProps(`<Link field={props.fields.link} />;`),
+        errors: [{ messageId: "useLinkComponent" }],
+      },
+      {
+        name: "optional chaining on value",
+        code: withProps(
+          `<a href={props.fields.link.value?.href}>{props.fields.link.value?.text}</a>;`
+        ),
+        output: withProps(`<Link field={props.fields.link} />;`),
+        errors: [{ messageId: "useLinkComponent" }],
+      },
+      {
+        name: "optional chaining on the field",
+        code: withProps(
+          `<a href={props.fields.link?.value.href}>{props.fields.link?.value.text}</a>;`
+        ),
+        output: withProps(`<Link field={props.fields.link} />;`),
+        errors: [{ messageId: "useLinkComponent" }],
+      },
+      {
+        name: "element children are preserved inside <Link>",
+        code: withProps(
+          `<a href={props.fields.link.value.href} className="btn"><span>Read more</span></a>;`
+        ),
+        output: withProps(
+          `<Link field={props.fields.link} className="btn"><span>Read more</span></Link>;`
+        ),
+        errors: [{ messageId: "useLinkComponent" }],
+      },
+      {
+        name: "text children are preserved inside <Link>",
+        code: withProps(`<a href={props.fields.link.value.href}>Go</a>;`),
+        output: withProps(`<Link field={props.fields.link}>Go</Link>;`),
         errors: [{ messageId: "useLinkComponent" }],
       },
       {

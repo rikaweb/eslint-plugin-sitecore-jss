@@ -1,12 +1,11 @@
 import { describe } from "vitest";
 import rule from "../../lib/rules/enforce-file-component";
-import { asRuleModule, createRuleTester, SDK, withProps } from "../helpers/fixtures";
+import { createRuleTester, SDK, withProps } from "../helpers/fixtures";
 
 const ruleTester = createRuleTester();
-const fileRule = asRuleModule<"useFileComponent">(rule);
 
 describe("enforce-file-component", () => {
-  ruleTester.run("enforce-file-component", fileRule, {
+  ruleTester.run("enforce-file-component", rule, {
     valid: [
       {
         name: "literal href",
@@ -50,6 +49,30 @@ describe("enforce-file-component", () => {
           `<a className="dl" href={props.fields.file.value.src}>{props.fields.file.value.title}</a>;`
         ),
         output: withProps(`<File field={props.fields.file} className="dl" />;`),
+        errors: [{ messageId: "useFileComponent" }],
+      },
+      {
+        name: "optional chaining on value",
+        code: withProps(
+          `<a href={props.fields.file.value?.src}>{props.fields.file.value?.title}</a>;`
+        ),
+        output: withProps(`<File field={props.fields.file} />;`),
+        errors: [{ messageId: "useFileComponent" }],
+      },
+      {
+        name: "text children are preserved inside <File>",
+        code: withProps(`<a href={props.fields.file.value.src}>Download</a>;`),
+        output: withProps(`<File field={props.fields.file}>Download</File>;`),
+        errors: [{ messageId: "useFileComponent" }],
+      },
+      {
+        name: "element children are preserved inside <File>",
+        code: withProps(
+          `<a href={props.fields.file.value.src} className="dl"><Icon name="pdf" /> Download</a>;`
+        ),
+        output: withProps(
+          `<File field={props.fields.file} className="dl"><Icon name="pdf" /> Download</File>;`
+        ),
         errors: [{ messageId: "useFileComponent" }],
       },
       {

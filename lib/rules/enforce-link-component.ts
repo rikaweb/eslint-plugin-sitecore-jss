@@ -1,124 +1,56 @@
-import {
-  ESLintUtils,
-  TSESTree,
-  AST_NODE_TYPES,
-} from "@typescript-eslint/utils";
-import {
-  RuleContext,
-  RuleFixer,
-} from "@typescript-eslint/utils/ts-eslint";
-import typeUtils from "./utils/type-checking";
-const { getType, isLinkField } = typeUtils;
+import { ESLintUtils } from "@typescript-eslint/utils";
+import { buildAnchorReplacement } from "../utils/anchor";
+import { createRule } from "../utils/create-rule";
+import { getFieldExpression } from "../utils/fields";
+import { getAttribute, getAttributeExpression, isElementNamed } from "../utils/jsx";
+import { isLinkField, resolveType } from "../utils/type-checking";
 
-export default {
-  defaultOptions: [] as never[],
+export default createRule<[], "useLinkComponent">({
+  name: "enforce-link-component",
   meta: {
     type: "problem",
     docs: {
       description:
-        "Ensure `<Link>` is used instead of raw `<a>` for `LinkField`.",
-      recommended: "recommended",
-    },
-    messages: {
-      useLinkComponent:
-        "Use `<Link field={{{fieldName}}} />` instead of `<a>`. Make sure you are using `LinkField`.",
+        "Render Sitecore link fields (`LinkField`) with `<Link>` instead of a raw `<a href={...}>`",
+      recommended: true,
+      requiresTypeChecking: true,
     },
     fixable: "code",
+    messages: {
+      useLinkComponent:
+        "Use `<Link field={{{fieldName}}} />` instead of `<a>` for the Sitecore link field `{{fieldName}}`, so the link stays editable in Sitecore.",
+    },
     schema: [],
   },
-
-  create(context: RuleContext<"useLinkComponent", never[]>) {
-    const parserServices = ESLintUtils.getParserServices(context);
-    if (!parserServices || !parserServices.program) return {};
-    const checker = parserServices.program.getTypeChecker();
+  defaultOptions: [],
+  create(context) {
+    const services = ESLintUtils.getParserServices(context);
+    const { sourceCode } = context;
 
     return {
-      JSXOpeningElement(node: TSESTree.JSXOpeningElement) {
-        if (
-          node.name.type !== AST_NODE_TYPES.JSXIdentifier ||
-          node.name.name !== "a"
-        )
-          return;
+      JSXElement(element) {
+        const opening = element.openingElement;
+        if (!isElementNamed(opening, "a")) return;
 
-        const hrefAttr = node.attributes.find(
-          (attr): attr is TSESTree.JSXAttribute =>
-            attr.type === AST_NODE_TYPES.JSXAttribute &&
-            attr.name.type === AST_NODE_TYPES.JSXIdentifier &&
-            attr.name.name === "href"
-        );
-        if (
-          !hrefAttr?.value ||
-          hrefAttr.value.type !== AST_NODE_TYPES.JSXExpressionContainer
-        ) {
-          console.warn("⚠️ `href` does not contain an expression, skipping.");
-          return;
-        }
+        const href = getAttribute(opening, "href");
+        const expression = href && getAttributeExpression(href);
+        if (!expression) return;
 
-        const expression = hrefAttr.value.expression;
-        if (expression.type !== AST_NODE_TYPES.MemberExpression) {
-          console.warn(
-            "⚠️ `href` is not a MemberExpression, skipping:",
-            context.sourceCode.getText(expression)
-          );
-          return;
-        }
+        const field = getFieldExpression(expression, ["href"]);
+        if (!field || !isLinkField(resolveType(services, field))) return;
 
-        const tsNode = parserServices.esTreeNodeToTSNodeMap.get(
-          expression.object
-        );
-        if (!tsNode) {
-          console.warn("⚠️ TypeScript Node not found.");
-          return;
-        }
-
-        const type = getType(tsNode, checker);
-
-        if (isLinkField(type)) {
-          let fieldName = expression as TSESTree.MemberExpression;
-          while (fieldName.type === AST_NODE_TYPES.MemberExpression) {
-            if (
-              fieldName.property.type === AST_NODE_TYPES.Identifier &&
-              (fieldName.property.name === "value" ||
-                fieldName.property.name === "href")
-            ) {
-              fieldName = fieldName.object as TSESTree.MemberExpression;
-            } else {
-              break;
-            }
-          }
-
-          const fieldNameText = context.sourceCode.getText(fieldName);
-          const parentElement = node.parent as TSESTree.JSXElement;
-
-          // Extract all attributes from the opening element except 'href'
-          const attributes = node.attributes
-            .filter((attr) => {
-              if (attr.type === AST_NODE_TYPES.JSXAttribute) {
-                return (
-                  attr.name.type === AST_NODE_TYPES.JSXIdentifier &&
-                  attr.name.name !== "href"
-                );
-              }
-              return attr.type === AST_NODE_TYPES.JSXSpreadAttribute;
-            })
-            .map((attr) => context.sourceCode.getText(attr))
-            .join(" ");
-
-          const attributesStr = attributes ? ` ${attributes}` : "";
-
-          context.report({
-            node,
-            messageId: "useLinkComponent",
-            data: { fieldName: fieldNameText },
-            fix(fixer: RuleFixer) {
-              return fixer.replaceText(
-                parentElement,
-                `<Link field={${fieldNameText}}${attributesStr} />`
-              );
-            },
-          });
-        }
+        const fieldText = sourceCode.getText(field);
+        context.report({
+          node: opening,
+          messageId: "useLinkComponent",
+          data: { fieldName: fieldText },
+          fix: (fixer) =>
+            fixer.replaceText(
+              element,
+              buildAnchorReplacement(sourceCode, element, "Link", fieldText, ["text"])
+            ),
+        });
       },
     };
   },
-};
+});

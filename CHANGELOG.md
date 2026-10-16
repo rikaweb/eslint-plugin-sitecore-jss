@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (v2 work in progress on the `v2` branch)
+
+- Fields read through optional chaining (`fields.title?.value`, `image.value?.src`, `link?.value.href`), non-null assertions (`value!.src`) and type assertions are now detected; the fix always targets the field itself (`field={props.fields.image}`, never `value!`).
+- Under `strictNullChecks`, `ImageField.value` is optional, so `.value.src` reads from a union type; the rules now look through `undefined` and detect it.
+- Auto-fix no longer drops content: elements with mixed children (`<h3>Hello {title.value}</h3>`) and custom component wrappers (`<Typography>{title.value}</Typography>`) are reported without a fix (new message ids `useTextComponentInWrapper` / `useRichTextComponentInWrapper`).
+- `<Link>` / `<File>` fixes keep the anchor's children unless they only re-render the field's own text (`{link.value.text}`, `{file.value.title}`).
+- The rules no longer print `console.warn` noise to stderr for ordinary `<a>` and `<img>` elements.
+- A field rendered without `.value` (`<p>{props.fields.title}</p>`) is reported and fixed too.
+- `enforce-richtext-component` detects `dangerouslySetInnerHTML={{ __html: richText.value }}` (also with `?? ""` / `|| ""`) and fixes it to `<RichText>` (new message id `avoidDangerouslySetInnerHTML`); `tag={"p"}` is handled like `tag="p"`.
+- Rules are built with `ESLintUtils.RuleCreator`, carry `docs.url`, `docs.requiresTypeChecking` and throw the standard typescript-eslint error when type information is missing (previously they silently did nothing).
+- `enforce-all-components` is deprecated (`meta.deprecated` with `replacedBy`); it keeps working.
+
 ### Added (v2 work in progress on the `v2` branch)
 
 - Test suite: vitest 5 + `@typescript-eslint/rule-tester` 8 with type-aware fixtures (`tests/fixtures/node_modules` holds type-only stand-ins for `@sitecore-jss/sitecore-jss-nextjs` and `@sitecore-content-sdk/nextjs`). Current behaviour is covered per rule and for the plugin entry; every known bug is captured in `tests/known-bugs/` as an `it.fails` case that asserts the desired behaviour.

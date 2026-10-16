@@ -15,6 +15,17 @@ const COMPONENT_RULES = [
   "enforce-file-component",
 ];
 
+interface RuleShape {
+  meta: {
+    docs?: { url?: string; description?: string };
+    deprecated?: unknown;
+    fixable?: string;
+    messages?: Record<string, string>;
+    schema?: unknown;
+  };
+  create: unknown;
+}
+
 const severityMap = (severity: "warn" | "error") =>
   Object.fromEntries(COMPONENT_RULES.map((name) => [`sitecore-jss/${name}`, severity]));
 
@@ -29,14 +40,26 @@ describe("plugin entry (dist/index.js)", () => {
     );
   });
 
-  it("every rule declares messages, an options schema and code fixes", () => {
-    for (const [name, rule] of Object.entries<{ meta: Record<string, unknown>; create: unknown }>(
-      plugin.rules
-    )) {
+  it("every rule declares docs, messages, an options schema and code fixes", () => {
+    for (const [name, rule] of Object.entries<RuleShape>(plugin.rules)) {
+      expect(rule.meta.docs?.description, name).toBeTruthy();
+      expect(rule.meta.docs?.url, name).toBe(
+        `https://github.com/rikaweb/eslint-plugin-sitecore-jss/blob/main/docs/rules/${name}.md`
+      );
       expect(rule.meta.messages, name).toBeTruthy();
       expect(rule.meta.schema, name).toEqual([]);
       expect(rule.meta.fixable, name).toBe("code");
       expect(typeof rule.create, name).toBe("function");
+    }
+  });
+
+  it("only the meta-rule is deprecated", () => {
+    for (const [name, rule] of Object.entries<RuleShape>(plugin.rules)) {
+      if (name === "enforce-all-components") {
+        expect(rule.meta.deprecated, name).toBeTruthy();
+      } else {
+        expect(rule.meta.deprecated, name).toBeFalsy();
+      }
     }
   });
 

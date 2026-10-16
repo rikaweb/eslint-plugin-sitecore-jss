@@ -1,14 +1,11 @@
 import { describe } from "vitest";
 import rule from "../../lib/rules/enforce-richtext-component";
-import { asRuleModule, createRuleTester, SDK, withProps } from "../helpers/fixtures";
+import { createRuleTester, SDK, withProps } from "../helpers/fixtures";
 
 const ruleTester = createRuleTester();
-const richTextRule = asRuleModule<
-  "useRichTextComponent" | "avoidNestedPTags" | "avoidRichTextPTag"
->(rule);
 
 describe("enforce-richtext-component", () => {
-  ruleTester.run("enforce-richtext-component", richTextRule, {
+  ruleTester.run("enforce-richtext-component", rule, {
     valid: [
       {
         name: "already uses <RichText> without a tag",
@@ -26,6 +23,12 @@ describe("enforce-richtext-component", () => {
         name: "dangerouslySetInnerHTML with a plain string is not a field",
         code: withProps(
           `declare const html: string;\n<div dangerouslySetInnerHTML={{ __html: html }} />;`
+        ),
+      },
+      {
+        name: "dangerouslySetInnerHTML with a text field is not this rule's concern",
+        code: withProps(
+          `<div dangerouslySetInnerHTML={{ __html: String(props.fields.title.value) }} />;`
         ),
       },
     ],
@@ -48,6 +51,12 @@ describe("enforce-richtext-component", () => {
         errors: [{ messageId: "useRichTextComponent" }],
       },
       {
+        name: "optional chaining on the field is detected",
+        code: withProps(`<div>{props.fields.body?.value}</div>;`),
+        output: withProps(`<RichText field={props.fields.body} tag="div" />;`),
+        errors: [{ messageId: "useRichTextComponent" }],
+      },
+      {
         name: "RichTextField inside <p> creates nested paragraphs: fix drops the tag",
         code: withProps(`<p>{props.fields.body.value}</p>;`),
         output: withProps(`<RichText field={props.fields.body} />;`),
@@ -60,8 +69,39 @@ describe("enforce-richtext-component", () => {
         errors: [{ messageId: "avoidNestedPTags" }],
       },
       {
+        name: "optional chaining inside <p> still triggers the nested-paragraph message",
+        code: withProps(`<p>{props.fields.body?.value}</p>;`),
+        output: withProps(`<RichText field={props.fields.body} />;`),
+        errors: [{ messageId: "avoidNestedPTags" }],
+      },
+      {
+        name: "mixed children: report without a fix",
+        code: withProps(`<div>Intro {props.fields.body.value}</div>;`),
+        output: null,
+        errors: [{ messageId: "useRichTextComponent" }],
+      },
+      {
+        name: "custom component wrapper: report without a fix",
+        code: withProps(
+          `declare const Prose: (p: { children?: unknown }) => unknown;\n<Prose>{props.fields.body.value}</Prose>;`
+        ),
+        output: null,
+        errors: [
+          {
+            messageId: "useRichTextComponentInWrapper",
+            data: { tagName: "Prose", fieldName: "props.fields.body" },
+          },
+        ],
+      },
+      {
         name: '<RichText tag="p"> is removed',
         code: withProps(`<RichText field={props.fields.body} tag="p" />;`),
+        output: withProps(`<RichText field={props.fields.body} />;`),
+        errors: [{ messageId: "avoidRichTextPTag" }],
+      },
+      {
+        name: '<RichText tag={"p"}> is removed too',
+        code: withProps(`<RichText field={props.fields.body} tag={"p"} />;`),
         output: withProps(`<RichText field={props.fields.body} />;`),
         errors: [{ messageId: "avoidRichTextPTag" }],
       },
@@ -70,6 +110,30 @@ describe("enforce-richtext-component", () => {
         code: withProps(`<RichText field={props.fields.body} tag="p" className="rte" />;`),
         output: withProps(`<RichText field={props.fields.body} className="rte" />;`),
         errors: [{ messageId: "avoidRichTextPTag" }],
+      },
+      {
+        name: "dangerouslySetInnerHTML with a RichTextField value, attributes preserved",
+        code: withProps(
+          `<div className="rte" dangerouslySetInnerHTML={{ __html: props.fields.body.value }} />;`
+        ),
+        output: withProps(`<RichText field={props.fields.body} tag="div" className="rte" />;`),
+        errors: [
+          { messageId: "avoidDangerouslySetInnerHTML", data: { fieldName: "props.fields.body" } },
+        ],
+      },
+      {
+        name: "dangerouslySetInnerHTML with a nullish fallback",
+        code: withProps(
+          `<div dangerouslySetInnerHTML={{ __html: props.fields.body.value ?? "" }} />;`
+        ),
+        output: withProps(`<RichText field={props.fields.body} tag="div" />;`),
+        errors: [{ messageId: "avoidDangerouslySetInnerHTML" }],
+      },
+      {
+        name: "dangerouslySetInnerHTML on a <p> drops the tag to avoid nested paragraphs",
+        code: withProps(`<p dangerouslySetInnerHTML={{ __html: props.fields.body.value }} />;`),
+        output: withProps(`<RichText field={props.fields.body} />;`),
+        errors: [{ messageId: "avoidDangerouslySetInnerHTML" }],
       },
       {
         name: "Content SDK field types are detected",

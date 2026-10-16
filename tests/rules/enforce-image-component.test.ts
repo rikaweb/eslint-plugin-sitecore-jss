@@ -1,12 +1,11 @@
 import { describe } from "vitest";
 import rule from "../../lib/rules/enforce-image-component";
-import { asRuleModule, createRuleTester, SDK, withProps } from "../helpers/fixtures";
+import { createRuleTester, SDK, withProps } from "../helpers/fixtures";
 
 const ruleTester = createRuleTester();
-const imageRule = asRuleModule<"useImageComponent">(rule);
 
 describe("enforce-image-component", () => {
-  ruleTester.run("enforce-image-component", imageRule, {
+  ruleTester.run("enforce-image-component", rule, {
     valid: [
       {
         name: "plain string src",
@@ -27,6 +26,30 @@ describe("enforce-image-component", () => {
     ],
     invalid: [
       {
+        name: "ImageField under strict mode (optional value is a union type)",
+        code: withProps(`<img src={props.fields.image.value.src} alt="x" />;`),
+        output: withProps(`<Image field={props.fields.image} alt="x" />;`),
+        errors: [{ messageId: "useImageComponent", data: { fieldName: "props.fields.image" } }],
+      },
+      {
+        name: "optional chaining on value",
+        code: withProps(`<img src={props.fields.image.value?.src} alt="x" />;`),
+        output: withProps(`<Image field={props.fields.image} alt="x" />;`),
+        errors: [{ messageId: "useImageComponent" }],
+      },
+      {
+        name: "non-null assertion: the fix targets the field, not value!",
+        code: withProps(`<img src={props.fields.image.value!.src} alt="y" loading="lazy" />;`),
+        output: withProps(`<Image field={props.fields.image} alt="y" loading="lazy" />;`),
+        errors: [{ messageId: "useImageComponent" }],
+      },
+      {
+        name: "optional chaining on the field and on value",
+        code: withProps(`<img src={props.fields.image?.value?.src} />;`),
+        output: withProps(`<Image field={props.fields.image} />;`),
+        errors: [{ messageId: "useImageComponent" }],
+      },
+      {
         name: "ImageFieldValue src, other attributes preserved",
         code: withProps(
           `declare const image: ImageFieldValue;\n<img src={image.src} alt="x" loading="lazy" />;`
@@ -37,13 +60,17 @@ describe("enforce-image-component", () => {
         errors: [{ messageId: "useImageComponent", data: { fieldName: "image" } }],
       },
       {
+        name: "attributes that read the field value are kept verbatim",
+        code: withProps(
+          `<img src={props.fields.image.value?.src} alt={props.fields.image.value?.alt} />;`
+        ),
+        output: withProps(`<Image field={props.fields.image} alt={props.fields.image.value?.alt} />;`),
+        errors: [{ messageId: "useImageComponent" }],
+      },
+      {
         name: "Content SDK field types are detected",
-        code: withProps(`declare const image: ImageFieldValue;\n<img src={image.src} />;`, {
-          pkg: SDK,
-        }),
-        output: withProps(`declare const image: ImageFieldValue;\n<Image field={image} />;`, {
-          pkg: SDK,
-        }),
+        code: withProps(`<img src={props.fields.image.value?.src} />;`, { pkg: SDK }),
+        output: withProps(`<Image field={props.fields.image} />;`, { pkg: SDK }),
         errors: [{ messageId: "useImageComponent" }],
       },
     ],

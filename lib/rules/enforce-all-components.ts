@@ -1,77 +1,83 @@
-import { TSESTree } from "@typescript-eslint/utils";
-import {
-  RuleContext,
-  RuleListener,
-  RuleFunction,
-} from "@typescript-eslint/utils/ts-eslint";
-import enforceTextComponent from "./enforce-text-component";
-import enforceRichTextComponent from "./enforce-richtext-component";
+import type { TSESLint, TSESTree } from "@typescript-eslint/utils";
+import { createRule } from "../utils/create-rule";
+import enforceFileComponent from "./enforce-file-component";
 import enforceImageComponent from "./enforce-image-component";
 import enforceLinkComponent from "./enforce-link-component";
-import enforceFileComponent from "./enforce-file-component";
+import enforceRichTextComponent from "./enforce-richtext-component";
+import enforceTextComponent from "./enforce-text-component";
 
-type MessageIds =
-  | "useTextComponent"
-  | "useRichTextComponent"
-  | "avoidNestedPTags"
-  | "avoidRichTextPTag"
-  | "useImageComponent"
-  | "useLinkComponent"
-  | "useFileComponent";
+const componentRules = [
+  enforceTextComponent,
+  enforceRichTextComponent,
+  enforceImageComponent,
+  enforceLinkComponent,
+  enforceFileComponent,
+] as const;
 
-type NodeTypes = TSESTree.Node | TSESTree.JSXOpeningElement;
+const messages = {
+  ...enforceTextComponent.meta.messages,
+  ...enforceRichTextComponent.meta.messages,
+  ...enforceImageComponent.meta.messages,
+  ...enforceLinkComponent.meta.messages,
+  ...enforceFileComponent.meta.messages,
+};
 
-export default {
-  defaultOptions: [] as never[],
+type MessageIds = keyof typeof messages;
+
+/**
+ * @deprecated since 2.0.0. This meta-rule runs every component rule under one rule id, which hides
+ * which rule fired and cannot be configured per rule. Use the plugin configs
+ * (`flat/recommended`, `recommended`, …) or enable the individual rules instead.
+ */
+export default createRule<[], MessageIds>({
+  name: "enforce-all-components",
   meta: {
     type: "problem",
+    deprecated: {
+      message:
+        "Enable the individual sitecore-jss/enforce-*-component rules instead, for example through the plugin's `flat/recommended` or `recommended` config.",
+      deprecatedSince: "2.0.0",
+      replacedBy: [
+        { rule: { name: "sitecore-jss/enforce-text-component" } },
+        { rule: { name: "sitecore-jss/enforce-richtext-component" } },
+        { rule: { name: "sitecore-jss/enforce-image-component" } },
+        { rule: { name: "sitecore-jss/enforce-link-component" } },
+        { rule: { name: "sitecore-jss/enforce-file-component" } },
+      ],
+    },
     docs: {
-      description: "Ensures correct usage of all Sitecore JSS components.",
-      recommended: "recommended",
+      description:
+        "Deprecated: runs every component rule under one rule id. Use the plugin configs or the individual rules instead",
+      recommended: false,
+      requiresTypeChecking: true,
     },
     fixable: "code",
+    messages,
     schema: [],
-    messages: {
-      ...enforceTextComponent.meta.messages,
-      ...enforceRichTextComponent.meta.messages,
-      ...enforceImageComponent.meta.messages,
-      ...enforceLinkComponent.meta.messages,
-      ...enforceFileComponent.meta.messages,
-    },
   },
-  create(context: RuleContext<MessageIds, never[]>) {
-    // Collect all rule listeners
-    const listeners = [
-      enforceTextComponent.create(context),
-      enforceRichTextComponent.create(context),
-      enforceImageComponent.create(context),
-      enforceLinkComponent.create(context),
-      enforceFileComponent.create(context),
-    ] as RuleListener[];
+  defaultOptions: [],
+  create(context) {
+    // Each component rule reports only its own message ids, which are a subset of this rule's,
+    // so they can share this rule's context.
+    const listeners = componentRules.map((rule) =>
+      (rule as unknown as TSESLint.RuleModule<MessageIds, []>).create(context)
+    );
 
-    // Merge all event listeners into one object
-    const mergedListeners: Record<string, RuleFunction<NodeTypes>[]> = {};
+    const merged: Record<string, Array<(node: TSESTree.Node) => void>> = {};
+    for (const listener of listeners) {
+      for (const [event, handler] of Object.entries(listener)) {
+        if (typeof handler !== "function") continue;
+        (merged[event] ??= []).push(handler as (node: TSESTree.Node) => void);
+      }
+    }
 
-    listeners.forEach((listener) => {
-      Object.keys(listener).forEach((event) => {
-        if (!mergedListeners[event]) {
-          mergedListeners[event] = [];
-        }
-        const handler = listener[event as keyof RuleListener];
-        if (typeof handler === "function") {
-          mergedListeners[event].push(handler as RuleFunction<NodeTypes>);
-        }
-      });
-    });
-
-    // Wrap each event handler so all handlers execute
     return Object.fromEntries(
-      Object.entries(mergedListeners).map(([event, handlers]) => [
+      Object.entries(merged).map(([event, handlers]) => [
         event,
-        function (node: NodeTypes) {
-          handlers.forEach((handler) => handler(node));
+        (node: TSESTree.Node) => {
+          for (const handler of handlers) handler(node);
         },
       ])
-    ) as RuleListener;
+    ) as TSESLint.RuleListener;
   },
-};
+});
