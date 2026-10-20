@@ -1,6 +1,6 @@
 import { describe } from "vitest";
 import rule from "../../lib/rules/enforce-link-component";
-import { createRuleTester, SDK, withProps } from "../helpers/fixtures";
+import { createRuleTester, FIELD_TYPES, JSS, SDK, withProps } from "../helpers/fixtures";
 
 const ruleTester = createRuleTester();
 
@@ -28,6 +28,16 @@ describe("enforce-link-component", () => {
         code: withProps(
           `<a href={props.fields.file.value.src}>{props.fields.file.value.title}</a>;`
         ),
+      },
+      {
+        name: "next/link in a file without Sitecore link fields is left alone",
+        code: [
+          `import Link from "next/link";`,
+          `import { Field } from "${JSS}";`,
+          `declare const title: Field<string>;`,
+          `<Link href="/about">{String(title.value)}</Link>;`,
+          "",
+        ].join("\n"),
       },
     ],
     invalid: [
@@ -90,6 +100,33 @@ describe("enforce-link-component", () => {
           { pkg: SDK }
         ),
         output: withProps(`<Link field={props.fields.link} />;`, { pkg: SDK }),
+        errors: [{ messageId: "useLinkComponent" }],
+      },
+
+      // Import auto-fixer
+      {
+        name: "fix extends the existing Sitecore import",
+        code: withProps(`<a href={props.fields.link.value.href}>{props.fields.link.value.text}</a>;`, {
+          imports: FIELD_TYPES,
+        }),
+        output: withProps(`<Link field={props.fields.link} />;`, {
+          imports: `${FIELD_TYPES}, Link`,
+        }),
+        errors: [
+          { messageId: "useLinkComponent" },
+          { messageId: "missingImport", data: { name: "Link", source: JSS } },
+        ],
+      },
+      {
+        name: "Link from next/link is a name conflict: report without a fix",
+        code: [
+          `import Link from "next/link";`,
+          `import { LinkField } from "${JSS}";`,
+          `declare const link: LinkField;`,
+          `<a href={link.value.href}>{link.value.text}</a>;`,
+          "",
+        ].join("\n"),
+        output: null,
         errors: [{ messageId: "useLinkComponent" }],
       },
     ],

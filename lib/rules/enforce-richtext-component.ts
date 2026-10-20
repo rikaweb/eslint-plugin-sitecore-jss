@@ -3,6 +3,12 @@ import { createRule } from "../utils/create-rule";
 import { findFieldChildren } from "../utils/field-children";
 import { getFieldExpression } from "../utils/fields";
 import {
+  createImportTracker,
+  importOptionsSchema,
+  MISSING_IMPORT_MESSAGE,
+  type ImportOptions,
+} from "../utils/imports";
+import {
   getAttribute,
   getAttributeExpression,
   getAttributeStringValue,
@@ -13,14 +19,16 @@ import {
   removeAttribute,
   serializeAttributes,
 } from "../utils/jsx";
-import { isRichTextField, resolveType } from "../utils/type-checking";
+import { getFieldPackage, isRichTextField, resolveType } from "../utils/type-checking";
 
+type Options = [ImportOptions];
 type MessageIds =
   | "useRichTextComponent"
   | "useRichTextComponentInWrapper"
   | "avoidNestedPTags"
   | "avoidRichTextPTag"
-  | "avoidDangerouslySetInnerHTML";
+  | "avoidDangerouslySetInnerHTML"
+  | "missingImport";
 
 /** The `__html` expression of `dangerouslySetInnerHTML={{ __html: ... }}`, looking through `?? ""` / `|| ""`. */
 function getDangerousHtmlExpression(
@@ -45,7 +53,7 @@ function getDangerousHtmlExpression(
   return undefined;
 }
 
-export default createRule<[], MessageIds>({
+export default createRule<Options, MessageIds>({
   name: "enforce-richtext-component",
   meta: {
     type: "problem",
@@ -67,13 +75,17 @@ export default createRule<[], MessageIds>({
         '`<RichText tag="p">` creates nested `<p>` elements, because Sitecore wraps rich text in paragraphs. Remove the `tag` attribute or use a block wrapper such as `tag="div"`.',
       avoidDangerouslySetInnerHTML:
         "Render `{{fieldName}}` with `<RichText field={{{fieldName}}} />` instead of `dangerouslySetInnerHTML`; `<RichText>` already renders the field's HTML and keeps it editable in Sitecore.",
+      missingImport: MISSING_IMPORT_MESSAGE,
     },
-    schema: [],
+    schema: [importOptionsSchema],
   },
-  defaultOptions: [],
-  create(context) {
+  defaultOptions: [{}],
+  create(context, [options]) {
     const services = ESLintUtils.getParserServices(context);
     const { sourceCode } = context;
+    const imports = createImportTracker(sourceCode, "RichText", options, (descriptor) =>
+      context.report({ messageId: "missingImport", ...descriptor })
+    );
 
     const replacement = (
       element: TSESTree.JSXElement,
@@ -86,7 +98,19 @@ export default createRule<[], MessageIds>({
       return `<RichText field={${fieldText}}${tag}${serializeAttributes(sourceCode, element.openingElement.attributes, omit)} />`;
     };
 
+    /** Whether a fix introducing `<RichText>` may be offered at `element`; records the import need. */
+    const canIntroduce = (
+      element: TSESTree.JSXElement,
+      type: Parameters<typeof getFieldPackage>[0]
+    ): boolean => {
+      const binding = imports.binding(element);
+      if (binding === "conflict") return false;
+      if (binding === "missing") imports.require(element.openingElement, getFieldPackage(type));
+      return true;
+    };
+
     return {
+      ...imports.listeners,
       JSXElement(element) {
         const opening = element.openingElement;
 
@@ -108,9 +132,11 @@ export default createRule<[], MessageIds>({
         const html = getDangerousHtmlExpression(opening);
         if (html) {
           const field = getFieldExpression(html);
-          if (field && isRichTextField(resolveType(services, field))) {
+          const type = field && resolveType(services, field);
+          if (field && type && isRichTextField(type)) {
             const fieldText = sourceCode.getText(field);
-            const safe = intrinsic && meaningfulChildren(element).length === 0;
+            const safe =
+              intrinsic && meaningfulChildren(element).length === 0 && canIntroduce(element, type);
             context.report({
               node: opening,
               messageId: "avoidDangerouslySetInnerHTML",
@@ -126,7 +152,7 @@ export default createRule<[], MessageIds>({
           }
         }
 
-        for (const { fieldText, soleChild } of findFieldChildren(
+        for (const { fieldText, type, soleChild } of findFieldChildren(
           sourceCode,
           services,
           element,
@@ -140,11 +166,12 @@ export default createRule<[], MessageIds>({
             });
             continue;
           }
+          const safe = soleChild && canIntroduce(element, type);
           context.report({
             node: opening,
             messageId: tagName === "p" ? "avoidNestedPTags" : "useRichTextComponent",
             data: { tagName, fieldName: fieldText },
-            fix: soleChild
+            fix: safe
               ? (fixer) => fixer.replaceText(element, replacement(element, tagName, fieldText))
               : null,
           });

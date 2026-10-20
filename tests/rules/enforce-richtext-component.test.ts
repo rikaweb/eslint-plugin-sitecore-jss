@@ -1,6 +1,6 @@
 import { describe } from "vitest";
 import rule from "../../lib/rules/enforce-richtext-component";
-import { createRuleTester, SDK, withProps } from "../helpers/fixtures";
+import { createRuleTester, FIELD_TYPES, JSS, SDK, withProps } from "../helpers/fixtures";
 
 const ruleTester = createRuleTester();
 
@@ -139,6 +139,37 @@ describe("enforce-richtext-component", () => {
         name: "Content SDK field types are detected",
         code: withProps(`<div>{props.fields.body.value}</div>;`, { pkg: SDK }),
         output: withProps(`<RichText field={props.fields.body} tag="div" />;`, { pkg: SDK }),
+        errors: [{ messageId: "useRichTextComponent" }],
+      },
+
+      // Import auto-fixer
+      {
+        name: "fix extends the existing Sitecore import",
+        code: withProps(`<div>{props.fields.body.value}</div>;`, { imports: FIELD_TYPES }),
+        output: withProps(`<RichText field={props.fields.body} tag="div" />;`, {
+          imports: `${FIELD_TYPES}, RichText`,
+        }),
+        errors: [
+          { messageId: "useRichTextComponent" },
+          { messageId: "missingImport", data: { name: "RichText", source: JSS } },
+        ],
+      },
+      {
+        name: "the dangerouslySetInnerHTML fix adds the import too",
+        code: withProps(`<div dangerouslySetInnerHTML={{ __html: props.fields.body.value }} />;`, {
+          imports: FIELD_TYPES,
+        }),
+        output: withProps(`<RichText field={props.fields.body} tag="div" />;`, {
+          imports: `${FIELD_TYPES}, RichText`,
+        }),
+        errors: [{ messageId: "avoidDangerouslySetInnerHTML" }, { messageId: "missingImport" }],
+      },
+      {
+        name: "name conflict: report without a fix",
+        code: withProps(`declare const RichText: unknown;\n<div>{props.fields.body.value}</div>;`, {
+          imports: FIELD_TYPES,
+        }),
+        output: null,
         errors: [{ messageId: "useRichTextComponent" }],
       },
     ],

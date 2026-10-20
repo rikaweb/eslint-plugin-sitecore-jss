@@ -1,6 +1,6 @@
 import { describe } from "vitest";
 import rule from "../../lib/rules/enforce-file-component";
-import { createRuleTester, SDK, withProps } from "../helpers/fixtures";
+import { createRuleTester, FIELD_TYPES, JSS, SDK, withProps } from "../helpers/fixtures";
 
 const ruleTester = createRuleTester();
 
@@ -88,6 +88,30 @@ describe("enforce-file-component", () => {
           { pkg: SDK }
         ),
         output: withProps(`<File field={props.fields.file} />;`, { pkg: SDK }),
+        errors: [{ messageId: "useFileComponent" }],
+      },
+
+      // Import auto-fixer
+      {
+        name: "fix extends the existing Sitecore import",
+        code: withProps(`<a href={props.fields.file.value.src}>{props.fields.file.value.title}</a>;`, {
+          imports: FIELD_TYPES,
+        }),
+        output: withProps(`<File field={props.fields.file} />;`, {
+          imports: `${FIELD_TYPES}, File`,
+        }),
+        errors: [
+          { messageId: "useFileComponent" },
+          { messageId: "missingImport", data: { name: "File", source: JSS } },
+        ],
+      },
+      {
+        name: "a local File binding is a name conflict: report without a fix",
+        code: withProps(
+          `declare const File: unknown;\n<a href={props.fields.file.value.src}>{props.fields.file.value.title}</a>;`,
+          { imports: FIELD_TYPES }
+        ),
+        output: null,
         errors: [{ messageId: "useFileComponent" }],
       },
     ],

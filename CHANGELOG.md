@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (v2 work in progress on the `v2` branch) — import auto-fixer
+
+- Every component rule now makes sure the component it introduces is imported. When a fix introduces `Text`, `RichText`, `Image`, `Link` or `File`, the rule also reports `missingImport` (anchored at the first element that needs it) with a fix that either extends an existing value import from a Sitecore component package (`@sitecore-jss/sitecore-jss-nextjs`, `@sitecore-jss/sitecore-jss-react`, `@sitecore-content-sdk/nextjs`, `@sitecore-content-sdk/react`) or adds `import { X } from "<pkg>"` after the last import. `<pkg>` comes from the new `importSource` rule option, else any Sitecore import already in the file (including a type-only one), else the package family that declares the field's type (Content SDK vs JSS), else `@sitecore-jss/sitecore-jss-nextjs`. The file's quote style is kept.
+- The same report also fires for a `<Text>`/`<Link>`/… that is already in the file but unbound, in files that import from a Sitecore package; this is how the second `--fix` pass completes the imports without type information.
+- When the component name is already bound to something else — `Link` from `next/link`, `Image` from `next/image`, a local declaration, a type-only import — the rule still reports the field misuse but offers no fix, so nothing gets shadowed.
+- Rule option `importSource` (string) on all five component rules.
+
 ### Fixed (v2 work in progress on the `v2` branch)
 
 - Fields read through optional chaining (`fields.title?.value`, `image.value?.src`, `link?.value.href`), non-null assertions (`value!.src`) and type assertions are now detected; the fix always targets the field itself (`field={props.fields.image}`, never `value!`).

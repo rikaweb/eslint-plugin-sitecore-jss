@@ -1,6 +1,6 @@
 import { describe } from "vitest";
 import rule from "../../lib/rules/enforce-image-component";
-import { createRuleTester, SDK, withProps } from "../helpers/fixtures";
+import { createRuleTester, FIELD_TYPES, JSS, SDK, withProps } from "../helpers/fixtures";
 
 const ruleTester = createRuleTester();
 
@@ -71,6 +71,31 @@ describe("enforce-image-component", () => {
         name: "Content SDK field types are detected",
         code: withProps(`<img src={props.fields.image.value?.src} />;`, { pkg: SDK }),
         output: withProps(`<Image field={props.fields.image} />;`, { pkg: SDK }),
+        errors: [{ messageId: "useImageComponent" }],
+      },
+
+      // Import auto-fixer
+      {
+        name: "fix extends the existing Sitecore import",
+        code: withProps(`<img src={props.fields.image.value?.src} />;`, { imports: FIELD_TYPES }),
+        output: withProps(`<Image field={props.fields.image} />;`, {
+          imports: `${FIELD_TYPES}, Image`,
+        }),
+        errors: [
+          { messageId: "useImageComponent" },
+          { messageId: "missingImport", data: { name: "Image", source: JSS } },
+        ],
+      },
+      {
+        name: "Image from next/image is a name conflict: report without a fix",
+        code: [
+          `import Image from "next/image";`,
+          `import { ImageField } from "${JSS}";`,
+          `declare const image: ImageField;`,
+          `<img src={image.value?.src} alt="" />;`,
+          "",
+        ].join("\n"),
+        output: null,
         errors: [{ messageId: "useImageComponent" }],
       },
     ],

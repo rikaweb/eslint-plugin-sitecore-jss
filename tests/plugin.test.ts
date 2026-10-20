@@ -47,9 +47,20 @@ describe("plugin entry (dist/index.js)", () => {
         `https://github.com/rikaweb/eslint-plugin-sitecore-jss/blob/main/docs/rules/${name}.md`
       );
       expect(rule.meta.messages, name).toBeTruthy();
-      expect(rule.meta.schema, name).toEqual([]);
+      expect(Array.isArray(rule.meta.schema), name).toBe(true);
       expect(rule.meta.fixable, name).toBe("code");
       expect(typeof rule.create, name).toBe("function");
+    }
+  });
+
+  it("component rules accept the importSource option; the meta-rule takes none", () => {
+    for (const [name, rule] of Object.entries<RuleShape>(plugin.rules)) {
+      const schema = rule.meta.schema as Array<{ properties?: Record<string, unknown> }>;
+      if (name === "enforce-all-components") {
+        expect(schema, name).toEqual([]);
+      } else {
+        expect(schema[0]?.properties, name).toHaveProperty("importSource");
+      }
     }
   });
 

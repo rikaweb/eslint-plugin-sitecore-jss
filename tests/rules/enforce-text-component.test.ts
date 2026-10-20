@@ -1,6 +1,6 @@
 import { describe } from "vitest";
 import rule from "../../lib/rules/enforce-text-component";
-import { createRuleTester, SDK, withProps } from "../helpers/fixtures";
+import { createRuleTester, FIELD_TYPES, JSS, SDK, withProps } from "../helpers/fixtures";
 
 const ruleTester = createRuleTester();
 
@@ -36,6 +36,20 @@ describe("enforce-text-component", () => {
         code: withProps(
           `declare const Card: (p: { title: Field<string> }) => unknown;\n<Card title={props.fields.title} />;`
         ),
+      },
+      {
+        name: "Text imported from the JSS React package counts as imported",
+        code: [
+          `import { Text } from "@sitecore-jss/sitecore-jss-react";`,
+          `import { Field } from "${JSS}";`,
+          `declare const title: Field<string>;`,
+          `<Text field={title} tag="h1" />;`,
+          "",
+        ].join("\n"),
+      },
+      {
+        name: "an unbound <Text> in a file without Sitecore imports is not ours",
+        code: `<Text tag="h1" />;\n`,
       },
     ],
     invalid: [
@@ -159,6 +173,221 @@ describe("enforce-text-component", () => {
         name: "Content SDK field types are detected",
         code: withProps(`<h1>{props.fields.title.value}</h1>;`, { pkg: SDK }),
         output: withProps(`<Text field={props.fields.title} tag="h1" />;`, { pkg: SDK }),
+        errors: [{ messageId: "useTextComponent" }],
+      },
+
+      // Import auto-fixer
+      {
+        name: "fix extends the existing Sitecore import",
+        code: withProps(`<h1>{props.fields.title.value}</h1>;`, { imports: FIELD_TYPES }),
+        output: withProps(`<Text field={props.fields.title} tag="h1" />;`, {
+          imports: `${FIELD_TYPES}, Text`,
+        }),
+        errors: [
+          { messageId: "useTextComponent" },
+          { messageId: "missingImport", data: { name: "Text", source: JSS } },
+        ],
+      },
+      {
+        name: "the import is added once for several elements",
+        code: withProps(
+          `<h1>{props.fields.title.value}</h1>;\n<h2>{props.fields.heading.value}</h2>;`,
+          { imports: FIELD_TYPES }
+        ),
+        output: withProps(
+          `<Text field={props.fields.title} tag="h1" />;\n<Text field={props.fields.heading} tag="h2" />;`,
+          { imports: `${FIELD_TYPES}, Text` }
+        ),
+        errors: [
+          { messageId: "useTextComponent" },
+          { messageId: "missingImport" },
+          { messageId: "useTextComponent" },
+        ],
+      },
+      {
+        name: "fix adds a new import after a type-only Sitecore import",
+        code: [
+          `import type { Field } from "${JSS}";`,
+          `declare const title: Field<string>;`,
+          `<h1>{title.value}</h1>;`,
+          "",
+        ].join("\n"),
+        output: [
+          `import type { Field } from "${JSS}";`,
+          `import { Text } from "${JSS}";`,
+          `declare const title: Field<string>;`,
+          `<Text field={title} tag="h1" />;`,
+          "",
+        ].join("\n"),
+        errors: [
+          { messageId: "useTextComponent" },
+          { messageId: "missingImport", data: { name: "Text", source: JSS } },
+        ],
+      },
+      {
+        name: "a multi-line import with a trailing comma is extended cleanly",
+        code: [
+          "import {",
+          "  Field,",
+          "  TextField,",
+          `} from "${JSS}";`,
+          `declare const title: Field<string>;`,
+          `<h1>{title.value}</h1>;`,
+          "",
+        ].join("\n"),
+        output: [
+          "import {",
+          "  Field,",
+          "  TextField, Text,",
+          `} from "${JSS}";`,
+          `declare const title: Field<string>;`,
+          `<Text field={title} tag="h1" />;`,
+          "",
+        ].join("\n"),
+        errors: [{ messageId: "useTextComponent" }, { messageId: "missingImport" }],
+      },
+      {
+        name: "a new import keeps the file's quote style",
+        code: [
+          `import type { Field } from '${JSS}';`,
+          `declare const title: Field<string>;`,
+          `<h1>{title.value}</h1>;`,
+          "",
+        ].join("\n"),
+        output: [
+          `import type { Field } from '${JSS}';`,
+          `import { Text } from '${JSS}';`,
+          `declare const title: Field<string>;`,
+          `<Text field={title} tag="h1" />;`,
+          "",
+        ].join("\n"),
+        errors: [{ messageId: "useTextComponent" }, { messageId: "missingImport" }],
+      },
+      {
+        name: "Content SDK fields extend the Content SDK import",
+        code: withProps(`<h1>{props.fields.title.value}</h1>;`, {
+          pkg: SDK,
+          imports: FIELD_TYPES,
+        }),
+        output: withProps(`<Text field={props.fields.title} tag="h1" />;`, {
+          pkg: SDK,
+          imports: `${FIELD_TYPES}, Text`,
+        }),
+        errors: [
+          { messageId: "useTextComponent" },
+          { messageId: "missingImport", data: { name: "Text", source: SDK } },
+        ],
+      },
+      {
+        name: "Content SDK fields get a Content SDK import when none can be extended",
+        code: [
+          `import type { Field } from "${SDK}";`,
+          `declare const title: Field<string>;`,
+          `<h1>{title.value}</h1>;`,
+          "",
+        ].join("\n"),
+        output: [
+          `import type { Field } from "${SDK}";`,
+          `import { Text } from "${SDK}";`,
+          `declare const title: Field<string>;`,
+          `<Text field={title} tag="h1" />;`,
+          "",
+        ].join("\n"),
+        errors: [
+          { messageId: "useTextComponent" },
+          { messageId: "missingImport", data: { name: "Text", source: SDK } },
+        ],
+      },
+      {
+        name: "the importSource option names the package for a new import",
+        options: [{ importSource: "@sitecore-jss/sitecore-jss-react" }],
+        code: [
+          `import type { Field } from "${JSS}";`,
+          `declare const title: Field<string>;`,
+          `<h1>{title.value}</h1>;`,
+          "",
+        ].join("\n"),
+        output: [
+          `import type { Field } from "${JSS}";`,
+          `import { Text } from "@sitecore-jss/sitecore-jss-react";`,
+          `declare const title: Field<string>;`,
+          `<Text field={title} tag="h1" />;`,
+          "",
+        ].join("\n"),
+        errors: [
+          { messageId: "useTextComponent" },
+          {
+            messageId: "missingImport",
+            data: { name: "Text", source: "@sitecore-jss/sitecore-jss-react" },
+          },
+        ],
+      },
+      {
+        name: "Text already imported from another Sitecore package needs no import",
+        code: [
+          `import { Text } from "@sitecore-jss/sitecore-jss-react";`,
+          `import { Field } from "${JSS}";`,
+          `declare const title: Field<string>;`,
+          `<h1>{title.value}</h1>;`,
+          "",
+        ].join("\n"),
+        output: [
+          `import { Text } from "@sitecore-jss/sitecore-jss-react";`,
+          `import { Field } from "${JSS}";`,
+          `declare const title: Field<string>;`,
+          `<Text field={title} tag="h1" />;`,
+          "",
+        ].join("\n"),
+        errors: [{ messageId: "useTextComponent" }],
+      },
+      {
+        name: "a <Text> already in the file but unbound gets the import",
+        code: withProps(`<Text field={props.fields.title} tag="h1" />;`, { imports: FIELD_TYPES }),
+        output: withProps(`<Text field={props.fields.title} tag="h1" />;`, {
+          imports: `${FIELD_TYPES}, Text`,
+        }),
+        errors: [{ messageId: "missingImport", data: { name: "Text", source: JSS } }],
+      },
+      {
+        name: "name conflict with a local declaration: report without a fix",
+        code: withProps(`declare function Text(): null;\n<h1>{props.fields.title.value}</h1>;`, {
+          imports: FIELD_TYPES,
+        }),
+        output: null,
+        errors: [{ messageId: "useTextComponent" }],
+      },
+      {
+        name: "name conflict with an import from another package: report without a fix",
+        code: [
+          `import { Field } from "${JSS}";`,
+          `import Text from "./Text";`,
+          `declare const title: Field<string>;`,
+          `<h1>{title.value}</h1>;`,
+          "",
+        ].join("\n"),
+        output: null,
+        errors: [{ messageId: "useTextComponent" }],
+      },
+      {
+        name: "a type-only import of Text is a conflict",
+        code: withProps(`<h1>{props.fields.title.value}</h1>;`, {
+          imports: `${FIELD_TYPES}, type Text`,
+        }),
+        output: null,
+        errors: [{ messageId: "useTextComponent" }],
+      },
+      {
+        name: "a shadowing local inside the component blocks the fix",
+        code: [
+          `import { Field } from "${JSS}";`,
+          `declare const title: Field<string>;`,
+          `function Component() {`,
+          `  const Text = "shadow";`,
+          `  return <h1>{title.value}</h1>;`,
+          `}`,
+          "",
+        ].join("\n"),
+        output: null,
         errors: [{ messageId: "useTextComponent" }],
       },
     ],
