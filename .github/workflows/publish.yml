@@ -1,21 +1,32 @@
-name: Publish to NPM
+name: Publish to npm
 
 on:
-  workflow_dispatch:
   release:
-    types: [created]
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # npm provenance
 
 jobs:
-  build:
+  publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "18.x"
-          registry-url: "https://registry.npmjs.org/"
-      - run: npm install
-      - run: npm run build
-      - run: npm publish --access public
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          cache: npm
+      - run: npm ci
+      - name: Check that the release tag matches package.json
+        if: github.event_name == 'release'
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          node -e 'const v = require("./package.json").version; const t = process.env.TAG.replace(/^v/, ""); if (v !== t) { console.error("package.json is " + v + " but the release tag is " + t); process.exit(1); }'
+      - name: Publish (prepublishOnly runs lint, typecheck, test and build)
+        run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

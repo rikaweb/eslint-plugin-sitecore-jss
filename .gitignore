@@ -34,3 +34,5 @@ coverage/
 *.tmp
 *.temp
 .cache/ 
+# Scratch file written by tests/integration/cli.test.ts
+tests/fixtures/integration/src/__fixme__*

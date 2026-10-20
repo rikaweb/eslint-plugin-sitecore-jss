@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (v2 work in progress on the `v2` branch) — integration test and CI
+
+- End-to-end test (`tests/integration/cli.test.ts`): the built `dist/` loaded by the real ESLint against a fixture project (`tests/fixtures/integration`), through the CLI with the flat `flat/recommended` and `flat/strict` configs on ESLint 9/10 and through the ESLint 8 class API with a legacy `.eslintrc.cjs`; checks every finding, that nothing is printed on stderr, and that `--fix` converges with every import added.
+- GitHub Actions `ci.yml`: lint, typecheck, test and `npm pack --dry-run` on Ubuntu and Windows (Node 22), plus a Node 20/22 × ESLint 8.57/9/10 matrix that runs the whole suite against each ESLint major.
+- `publish.yml` now runs on `release: published`, checks that the release tag matches `package.json`, installs with `npm ci` and publishes with `--provenance` (`prepublishOnly` runs lint, typecheck, test and build).
+- `vite` is an explicit dev dependency (vitest's peer), so installs with `--legacy-peer-deps` keep it.
+
 ### Added (v2 work in progress on the `v2` branch) — import auto-fixer
 
 - Every component rule now makes sure the component it introduces is imported. When a fix introduces `Text`, `RichText`, `Image`, `Link` or `File`, the rule also reports `missingImport` (anchored at the first element that needs it) with a fix that either extends an existing value import from a Sitecore component package (`@sitecore-jss/sitecore-jss-nextjs`, `@sitecore-jss/sitecore-jss-react`, `@sitecore-content-sdk/nextjs`, `@sitecore-content-sdk/react`) or adds `import { X } from "<pkg>"` after the last import. `<pkg>` comes from the new `importSource` rule option, else any Sitecore import already in the file (including a type-only one), else the package family that declares the field's type (Content SDK vs JSS), else `@sitecore-jss/sitecore-jss-nextjs`. The file's quote style is kept.
