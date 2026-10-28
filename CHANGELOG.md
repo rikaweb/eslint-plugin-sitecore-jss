@@ -7,44 +7,94 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added (v2 work in progress on the `v2` branch) — integration test and CI
+## [2.0.0] - 2026-10-28
 
-- End-to-end test (`tests/integration/cli.test.ts`): the built `dist/` loaded by the real ESLint against a fixture project (`tests/fixtures/integration`), through the CLI with the flat `flat/recommended` and `flat/strict` configs on ESLint 9/10 and through the ESLint 8 class API with a legacy `.eslintrc.cjs`; checks every finding, that nothing is printed on stderr, and that `--fix` converges with every import added.
-- GitHub Actions `ci.yml`: lint, typecheck, test and `npm pack --dry-run` on Ubuntu and Windows (Node 22), plus a Node 20/22 × ESLint 8.57/9/10 matrix that runs the whole suite against each ESLint major.
-- `publish.yml` now runs on `release: published`, checks that the release tag matches `package.json`, installs with `npm ci` and publishes with `--provenance` (`prepublishOnly` runs lint, typecheck, test and build).
-- `vite` is an explicit dev dependency (vitest's peer), so installs with `--legacy-peer-deps` keep it.
+A rewrite for today's toolchain: ESLint 9/10 flat config, typescript-eslint 8 and the Sitecore Content
+SDK, with the auto-fixer made safe and complete. The rule names and the `recommended` / `all` configs are
+unchanged, so most 1.x setups only need the dependency update.
 
-### Added (v2 work in progress on the `v2` branch) — import auto-fixer
+### Breaking changes
 
-- Every component rule now makes sure the component it introduces is imported. When a fix introduces `Text`, `RichText`, `Image`, `Link` or `File`, the rule also reports `missingImport` (anchored at the first element that needs it) with a fix that either extends an existing value import from a Sitecore component package (`@sitecore-jss/sitecore-jss-nextjs`, `@sitecore-jss/sitecore-jss-react`, `@sitecore-content-sdk/nextjs`, `@sitecore-content-sdk/react`) or adds `import { X } from "<pkg>"` after the last import. `<pkg>` comes from the new `importSource` rule option, else any Sitecore import already in the file (including a type-only one), else the package family that declares the field's type (Content SDK vs JSS), else `@sitecore-jss/sitecore-jss-nextjs`. The file's quote style is kept.
-- The same report also fires for a `<Text>`/`<Link>`/… that is already in the file but unbound, in files that import from a Sitecore package; this is how the second `--fix` pass completes the imports without type information.
-- When the component name is already bound to something else — `Link` from `next/link`, `Image` from `next/image`, a local declaration, a type-only import — the rule still reports the field misuse but offers no fix, so nothing gets shadowed.
-- Rule option `importSource` (string) on all five component rules.
+- **Supported toolchain:** ESLint `^8.57.0 || ^9.0.0 || ^10.0.0`, `@typescript-eslint/parser` `^7 || ^8`,
+  TypeScript `>=4.8.4 <6.1.0`, Node `^18.18.0 || ^20.9.0 || >=21.1.0`. ESLint 8.0–8.56, typescript-eslint 5/6
+  and Node 14/16 are no longer supported.
+- **Type information is required.** The rules throw the standard typescript-eslint configuration error when
+  `parserOptions.projectService` / `parserOptions.project` is missing; 1.x silently did nothing.
+- **`enforce-all-components` is deprecated** (`meta.deprecated` with `replacedBy`). It keeps working, but the
+  `all` config now enables the five individual rules (same severity as before) instead of the meta-rule.
+- **Auto-fix is conservative.** Elements with other children next to the field, component wrappers
+  (`<Typography>{title.value}</Typography>`) and component names that are already bound to something else
+  (`Link` from `next/link`, `Image` from `next/image`, locals, type-only imports) are reported without a fix.
+  New message ids: `useTextComponentInWrapper`, `useRichTextComponentInWrapper`.
+- **The fix adds the import.** A second problem, `missingImport`, is reported next to the first element that
+  needs a component, with a fix that extends an existing Sitecore import or adds a new one.
+- Message texts were rewritten; `fieldName` placeholders now render with braces (`field={props.fields.title}`).
 
-### Fixed (v2 work in progress on the `v2` branch)
+### Added
 
-- Fields read through optional chaining (`fields.title?.value`, `image.value?.src`, `link?.value.href`), non-null assertions (`value!.src`) and type assertions are now detected; the fix always targets the field itself (`field={props.fields.image}`, never `value!`).
-- Under `strictNullChecks`, `ImageField.value` is optional, so `.value.src` reads from a union type; the rules now look through `undefined` and detect it.
-- Auto-fix no longer drops content: elements with mixed children (`<h3>Hello {title.value}</h3>`) and custom component wrappers (`<Typography>{title.value}</Typography>`) are reported without a fix (new message ids `useTextComponentInWrapper` / `useRichTextComponentInWrapper`).
-- `<Link>` / `<File>` fixes keep the anchor's children unless they only re-render the field's own text (`{link.value.text}`, `{file.value.title}`).
-- The rules no longer print `console.warn` noise to stderr for ordinary `<a>` and `<img>` elements.
-- A field rendered without `.value` (`<p>{props.fields.title}</p>`) is reported and fixed too.
-- `enforce-richtext-component` detects `dangerouslySetInnerHTML={{ __html: richText.value }}` (also with `?? ""` / `|| ""`) and fixes it to `<RichText>` (new message id `avoidDangerouslySetInnerHTML`); `tag={"p"}` is handled like `tag="p"`.
-- Rules are built with `ESLintUtils.RuleCreator`, carry `docs.url`, `docs.requiresTypeChecking` and throw the standard typescript-eslint error when type information is missing (previously they silently did nothing).
-- `enforce-all-components` is deprecated (`meta.deprecated` with `replacedBy`); it keeps working.
+- Flat configs for ESLint 9+: `flat/recommended` (warn), `flat/strict` (error), `flat/all` (alias of
+  recommended); legacy `strict` next to `recommended` and `all`. `plugin.meta` carries name and version.
+- Content SDK support: field types from `@sitecore-content-sdk/nextjs` / `@sitecore-content-sdk/react` are
+  recognised, and the import fixer targets the Content SDK package when the field's type comes from it.
+- Rule option `importSource` (string) on every component rule: the package to import a component from when
+  the file has no Sitecore import that can be extended.
+- `enforce-richtext-component` detects `dangerouslySetInnerHTML={{ __html: richText.value }}` (also with
+  `?? ""` / `|| ""`) and fixes it to `<RichText>` (`avoidDangerouslySetInnerHTML`); `tag={"p"}` is handled
+  like `tag="p"`.
+- A field rendered without `.value` (`<p>{props.fields.title}</p>`) is reported and fixed.
+- Per-rule documentation in `docs/rules/` (linked from each rule's `meta.docs.url`).
+- Test suite (vitest + `@typescript-eslint/rule-tester`) with type-only fixture packages for JSS and the
+  Content SDK, an end-to-end test through the real ESLint CLI, and a CI matrix on Node 20/22 × ESLint
+  8.57/9/10. Releases are published with npm provenance.
 
-### Added (v2 work in progress on the `v2` branch)
+### Changed
 
-- Test suite: vitest 5 + `@typescript-eslint/rule-tester` 8 with type-aware fixtures (`tests/fixtures/node_modules` holds type-only stand-ins for `@sitecore-jss/sitecore-jss-nextjs` and `@sitecore-content-sdk/nextjs`). Current behaviour is covered per rule and for the plugin entry; every known bug is captured in `tests/known-bugs/` as an `it.fails` case that asserts the desired behaviour.
+- Rules are built with `ESLintUtils.RuleCreator` and declare `docs.requiresTypeChecking`; they use
+  `context.sourceCode` (required by ESLint 10) and the public `@typescript-eslint/utils/ts-eslint` entry.
+- `@typescript-eslint/utils` is a runtime dependency (it was only a devDependency, so consumers relied on
+  hoisting).
+- `package.json` gains `exports`, `sideEffects: false`, `homepage` and `bugs`; `package-lock.json` is tracked.
+- `<Link>` / `<File>` fixes keep the anchor's children unless they only re-render the field's own text
+  (`{link.value.text}`, `{file.value.title}` / `displayName`).
 
-### Changed (v2 work in progress on the `v2` branch)
+### Fixed
 
-- **Breaking:** supported toolchain is now ESLint `^8.57.0 || ^9.0.0 || ^10.0.0`, `@typescript-eslint/parser` `^7 || ^8`, TypeScript `>=4.8.4 <6.1.0`, Node `^18.18 || ^20.9 || >=21.1`.
-- `@typescript-eslint/utils` is a runtime dependency (it was only a devDependency, so consumers relied on hoisting).
-- Rules use `context.sourceCode` instead of the removed `context.getSourceCode()` (required by ESLint 10) and import `ts-eslint` types from the public `@typescript-eslint/utils/ts-eslint` entry point.
-- New flat configs `flat/recommended`, `flat/strict` and `flat/all` for ESLint 9+; legacy `recommended` and `all` kept, plus a legacy `strict`.
-- `package.json` gains `exports`, `sideEffects: false`, `homepage`/`bugs`; repository lint moved to `eslint.config.mjs`.
-- Repo hygiene: generated release/blog markdown moved to `docs/archive/`, MIT `LICENSE` added, `package-lock.json` tracked.
+- Fields read through optional chaining (`fields.title?.value`, `image.value?.src`, `link?.value.href`),
+  non-null assertions (`value!.src`) and type assertions are detected; the fix targets the field itself
+  (`field={props.fields.image}`, never `value!`).
+- Under `strictNullChecks`, `ImageField.value` is optional, so `.value.src` reads from a union type; the
+  rules look through `undefined` and detect it.
+- The fix no longer drops text next to the field or rewrites component wrappers into `<Text tag="Typography">`.
+- No more `console.warn` output on stderr for ordinary `<a>` and `<img>` elements.
+
+### Migrating from 1.x
+
+1. Update ESLint (8.57+) and `@typescript-eslint/parser` (7+). On ESLint 9/10 use the flat config:
+
+   ```js
+   import tsParser from "@typescript-eslint/parser";
+   import sitecoreJss from "eslint-plugin-sitecore-jss";
+
+   export default [
+     {
+       files: ["**/*.{ts,tsx}"],
+       languageOptions: {
+         parser: tsParser,
+         parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
+       },
+     },
+     ...sitecoreJss.configs["flat/recommended"],
+   ];
+   ```
+
+   On ESLint 8, `.eslintrc.cjs` with `extends: ["plugin:sitecore-jss/recommended"]` keeps working.
+2. If you used `enforce-all-components` directly, switch to the config or the individual rules.
+3. Prefer `parserOptions.projectService` over `parserOptions.project`: with the classic option, ESLint's
+   later `--fix` passes see stale type information and may report zero remaining problems when unfixable
+   ones exist (a second plain run shows them). Fixes are applied correctly either way.
+4. Expect more findings and safer rewrites: optional chaining is detected, the import is added, and elements
+   with mixed children or component wrappers are reported without a fix. If `Link` or `Image` is already
+   imported from Next.js in a file, alias one of the two imports and run `--fix` again.
 
 ## [1.1.6] - 2025-11-12
 
@@ -138,26 +188,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TypeScript support
 - Documentation for all rules and configuration options
 
-### Changed
-
-- N/A (Initial Release)
-
-### Deprecated
-
-- N/A (Initial Release)
-
-### Removed
-
-- N/A (Initial Release)
-
-### Fixed
-
-- N/A (Initial Release)
-
-### Security
-
-- N/A (Initial Release)
-
+[Unreleased]: https://github.com/rikaweb/eslint-plugin-sitecore-jss/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/rikaweb/eslint-plugin-sitecore-jss/compare/v1.1.6...v2.0.0
 [1.1.6]: https://github.com/rikaweb/eslint-plugin-sitecore-jss/compare/v1.1.5...v1.1.6
 [1.1.5]: https://github.com/rikaweb/eslint-plugin-sitecore-jss/compare/v1.1.4...v1.1.5
 [1.1.4]: https://github.com/rikaweb/eslint-plugin-sitecore-jss/compare/v1.1.3...v1.1.4
