@@ -7,6 +7,20 @@ import tseslint from "typescript-eslint";
 export default defineConfig([
   globalIgnores(["dist/", "docs/", "coverage/", "node_modules/", "tests/fixtures/"]),
   js.configs.recommended,
+  {
+    // CommonJS helper scripts (tests/integration/legacy-eslint.cjs) use the Node globals.
+    files: ["**/*.cjs"],
+    languageOptions: {
+      sourceType: "commonjs",
+      globals: {
+        require: "readonly",
+        module: "writable",
+        process: "readonly",
+        console: "readonly",
+        __dirname: "readonly",
+      },
+    },
+  },
   tseslint.configs.recommended,
   {
     files: ["**/*.ts"],

@@ -1,5 +1,9 @@
 // End-to-end: the built plugin (dist/) loaded by the real ESLint installed in this repo, against the
 // fixture project in tests/fixtures/integration. CI runs this under ESLint 8.57, 9 and 10.
+//
+// Every lint runs in a process of its own (the ESLint CLI, or tests/integration/legacy-eslint.cjs for
+// the ESLint 8 class API), so typescript-eslint builds a fresh program that already contains the file
+// under test; its in-process program cache does not reliably pick up files created mid-process.
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import { createRequire } from "node:module";
@@ -8,10 +12,12 @@ import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 
 const load = createRequire(import.meta.url);
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const testDir = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(testDir, "../..");
 const projectDir = path.join(repoRoot, "tests/fixtures/integration");
 // "eslint/bin/eslint.js" is not in the package exports map, so resolve it through package.json.
 const eslintBin = path.join(path.dirname(load.resolve("eslint/package.json")), "bin/eslint.js");
+const legacyRunner = path.join(testDir, "legacy-eslint.cjs");
 const eslintMajor = Number(load("eslint/package.json").version.split(".")[0]);
 
 const SAMPLE = path.join(projectDir, "src/Sample.tsx");
@@ -29,6 +35,7 @@ interface LintResult {
   messages: LintMessage[];
   errorCount: number;
   warningCount: number;
+  output?: string | null;
 }
 
 /** 14 element findings + 4 missing-import reports (RichText is already imported in the sample). */
@@ -55,13 +62,28 @@ function countByRule(messages: LintMessage[]): Record<string, number> {
   return counts;
 }
 
-/** Specifier list of the sample's (multi-line) import from the JSS package, after fixes. */
-function sitecoreImportSpecifiers(file: string): string {
+function messageIds(result: LintResult): string[] {
+  return result.messages.map((message) => message.messageId ?? "(none)").sort();
+}
+
+/**
+ * Local names imported from the JSS package in `file`, as exact identifiers. (A substring check
+ * would pass vacuously: the sample already imports `TextField`, `ImageField`, `LinkField`, `FileField`.)
+ */
+function importedFromJss(file: string): string[] {
   const match = /import\s*\{([^}]*)\}\s*from\s*"@sitecore-jss\/sitecore-jss-nextjs"/.exec(
     fs.readFileSync(file, "utf8")
   );
   if (!match) throw new Error(`no import from @sitecore-jss/sitecore-jss-nextjs found in ${file}`);
-  return match[1];
+  return match[1]
+    .split(",")
+    .map((specifier) => specifier.trim().split(/\s+as\s+/).pop() ?? "")
+    .filter(Boolean);
+}
+
+function expectAllComponentsImported(file: string): void {
+  const imported = importedFromJss(file);
+  for (const component of COMPONENTS) expect(imported, imported.join(", ")).toContain(component);
 }
 
 afterEach(() => {
@@ -102,47 +124,40 @@ describe.skipIf(eslintMajor < 9)(`ESLint ${eslintMajor} CLI with the flat config
     fs.copyFileSync(SAMPLE, SCRATCH);
     const fixRun = runCli(["--fix", "src/__fixme__.tsx"]);
     expect(fixRun.stderr.trim()).toBe("");
-
-    const specifiers = sitecoreImportSpecifiers(SCRATCH);
-    for (const component of COMPONENTS) expect(specifiers).toContain(component);
+    expectAllComponentsImported(SCRATCH);
 
     const { results } = runCli(["src/__fixme__.tsx"]);
-    expect(results[0].messages.map((message) => message.messageId).sort()).toEqual(UNFIXABLE);
+    expect(messageIds(results[0])).toEqual(UNFIXABLE);
   });
 });
 
 describe.skipIf(eslintMajor >= 9)(`ESLint ${eslintMajor} with a legacy .eslintrc.cjs config`, () => {
-  // ESLint 8 resolves `plugins: ["sitecore-jss"]` from node_modules, which this repo does not contain
-  // itself, so the plugin is preloaded through the ESLint class API — the same code path the CLI uses.
-  const plugin = load("../../dist/index.js");
-  const { ESLint } = load("eslint");
-
-  function createEngine(fix: boolean) {
-    return new ESLint({
-      cwd: projectDir,
-      useEslintrc: false,
-      overrideConfigFile: ".eslintrc.cjs",
-      plugins: { "sitecore-jss": plugin },
-      fix,
-    });
+  function runLegacy(file: string, fix = false): LintResult {
+    const run = spawnSync(
+      process.execPath,
+      [legacyRunner, projectDir, file, ...(fix ? ["--fix"] : [])],
+      { cwd: repoRoot, encoding: "utf8" }
+    );
+    if (run.status !== 0 || !run.stdout) {
+      throw new Error(`legacy runner failed (status ${run.status}):\n${run.stderr}`);
+    }
+    return JSON.parse(run.stdout) as LintResult;
   }
 
-  it("reports every finding through plugin:sitecore-jss/recommended", async () => {
-    const [result] = (await createEngine(false).lintFiles(["src/Sample.tsx"])) as LintResult[];
+  it("reports every finding through plugin:sitecore-jss/recommended", () => {
+    const result = runLegacy("src/Sample.tsx");
     expect(countByRule(result.messages)).toEqual(EXPECTED_BY_RULE);
     expect(result.warningCount).toBe(EXPECTED_TOTAL);
     expect(result.errorCount).toBe(0);
   });
 
-  it("fix converges: every import is added and only the unfixable findings remain", async () => {
+  it("fix converges: every import is added and only the unfixable findings remain", () => {
     fs.copyFileSync(SAMPLE, SCRATCH);
-    const results = await createEngine(true).lintFiles(["src/__fixme__.tsx"]);
-    await ESLint.outputFixes(results);
+    const fixRun = runLegacy("src/__fixme__.tsx", true);
+    expect(fixRun.output, "the fix run should rewrite the file").toBeTruthy();
+    expectAllComponentsImported(SCRATCH);
 
-    const specifiers = sitecoreImportSpecifiers(SCRATCH);
-    for (const component of COMPONENTS) expect(specifiers).toContain(component);
-
-    const [after] = (await createEngine(false).lintFiles(["src/__fixme__.tsx"])) as LintResult[];
-    expect(after.messages.map((message) => message.messageId).sort()).toEqual(UNFIXABLE);
+    const after = runLegacy("src/__fixme__.tsx");
+    expect(messageIds(after)).toEqual(UNFIXABLE);
   });
 });
