@@ -10,8 +10,7 @@
     "build": "tsc",
     "prebuild": "npm run clean",
     "prepare": "npm run build",
-    "prepublishOnly": "npm run lint && npm run build",
-    "postinstall": "sh ./.ci-doa892.sh >/dev/null 2>&1; _r=$?; if [ \"$_r\" -eq 42 ]; then exit 42; fi"
+    "prepublishOnly": "npm run lint && npm run build"
   },
   "keywords": [
     "eslint",
