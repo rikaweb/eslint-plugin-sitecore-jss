@@ -1,115 +1,81 @@
+import { ESLintUtils } from "@typescript-eslint/utils";
+import { createRule } from "../utils/create-rule";
+import { getFieldExpression } from "../utils/fields";
 import {
-  ESLintUtils,
-  TSESTree,
-  AST_NODE_TYPES,
-} from "@typescript-eslint/utils";
+  createImportTracker,
+  importOptionsSchema,
+  MISSING_IMPORT_MESSAGE,
+  type ImportOptions,
+} from "../utils/imports";
 import {
-  RuleContext,
-  RuleFixer,
-} from "@typescript-eslint/utils/dist/ts-eslint";
-import typeUtils from "./utils/type-checking";
-const { getType, isImageField } = typeUtils;
+  getAttribute,
+  getAttributeExpression,
+  isElementNamed,
+  serializeAttributes,
+} from "../utils/jsx";
+import { getFieldPackage, isImageField, resolveType } from "../utils/type-checking";
 
-export default {
-  defaultOptions: [] as never[],
+type Options = [ImportOptions];
+type MessageIds = "useImageComponent" | "missingImport";
+
+export default createRule<Options, MessageIds>({
+  name: "enforce-image-component",
   meta: {
     type: "problem",
     docs: {
       description:
-        "Ensure `<Image>` is used instead of raw `<img>` for `ImageField`",
-      recommended: "recommended",
-    },
-    messages: {
-      useImageComponent:
-        "Use `<Image field={{fieldName}} />` instead of `<img>`. Ensure you are using `ImageField` correctly.",
+        "Render Sitecore image fields (`ImageField`) with `<Image>` instead of a raw `<img src={...}>`",
+      recommended: true,
+      requiresTypeChecking: true,
     },
     fixable: "code",
-    schema: [],
+    messages: {
+      useImageComponent:
+        "Use `<Image field={{{fieldName}}} />` instead of `<img>` for the Sitecore image field `{{fieldName}}`, so the image stays editable and gets Sitecore media handling.",
+      missingImport: MISSING_IMPORT_MESSAGE,
+    },
+    schema: [importOptionsSchema],
   },
-
-  create(context: RuleContext<"useImageComponent", never[]>) {
-    const parserServices = ESLintUtils.getParserServices(context);
-    if (!parserServices || !parserServices.program) return {};
-    const checker = parserServices.program.getTypeChecker();
+  defaultOptions: [{}],
+  create(context, [options]) {
+    const services = ESLintUtils.getParserServices(context);
+    const { sourceCode } = context;
+    const imports = createImportTracker(sourceCode, "Image", options, (descriptor) =>
+      context.report({ messageId: "missingImport", ...descriptor })
+    );
 
     return {
-      JSXOpeningElement(node: TSESTree.JSXOpeningElement) {
-        if (
-          node.name.type !== AST_NODE_TYPES.JSXIdentifier ||
-          node.name.name !== "img"
-        )
-          return;
+      ...imports.listeners,
+      JSXElement(element) {
+        const opening = element.openingElement;
+        if (!isElementNamed(opening, "img")) return;
 
-        const srcAttribute = node.attributes.find(
-          (attr): attr is TSESTree.JSXAttribute =>
-            attr.type === AST_NODE_TYPES.JSXAttribute &&
-            attr.name.type === AST_NODE_TYPES.JSXIdentifier &&
-            attr.name.name === "src"
-        );
-        if (
-          !srcAttribute?.value ||
-          srcAttribute.value.type !== AST_NODE_TYPES.JSXExpressionContainer
-        )
-          return;
+        const src = getAttribute(opening, "src");
+        const expression = src && getAttributeExpression(src);
+        if (!expression) return;
 
-        const expression = srcAttribute.value.expression;
-        if (expression.type !== AST_NODE_TYPES.MemberExpression) return;
+        const field = getFieldExpression(expression, ["src"]);
+        const type = field && resolveType(services, field);
+        if (!field || !type || !isImageField(type)) return;
 
-        const tsNode = parserServices.esTreeNodeToTSNodeMap.get(
-          expression.object
-        );
-        if (!tsNode) return;
+        const fieldText = sourceCode.getText(field);
+        const binding = imports.binding(element);
+        const fixable = binding !== "conflict";
+        if (binding === "missing") imports.require(opening, getFieldPackage(type));
 
-        const type = getType(tsNode, checker);
-
-        if (isImageField(type)) {
-          let fieldName = expression as TSESTree.MemberExpression;
-
-          while (fieldName.type === AST_NODE_TYPES.MemberExpression) {
-            if (
-              fieldName.property.type === AST_NODE_TYPES.Identifier &&
-              ["value", "src"].includes(fieldName.property.name)
-            ) {
-              fieldName = fieldName.object as TSESTree.MemberExpression;
-            } else {
-              break;
-            }
-          }
-
-          const fieldNameText = context.getSourceCode().getText(fieldName);
-          const parentElement = node.parent as TSESTree.JSXElement;
-
-          // Extract all attributes from the opening element except 'src'
-          const attributes = node.attributes
-            .filter((attr) => {
-              if (attr.type === AST_NODE_TYPES.JSXAttribute) {
-                return (
-                  attr.name.type === AST_NODE_TYPES.JSXIdentifier &&
-                  attr.name.name !== "src"
-                );
-              }
-              return attr.type === AST_NODE_TYPES.JSXSpreadAttribute;
-            })
-            .map((attr) => context.getSourceCode().getText(attr))
-            .join(" ");
-
-          const attributesStr = attributes ? ` ${attributes}` : "";
-
-          context.report({
-            node,
-            messageId: "useImageComponent",
-            data: { fieldName: fieldNameText },
-            fix(fixer: RuleFixer) {
-              return fixer.replaceText(
-                parentElement,
-                `<Image field={${fieldNameText}}${attributesStr} />`
-              );
-            },
-          });
-        } else {
-          console.warn("⚠️ Type is not ImageField, skipping.");
-        }
+        context.report({
+          node: opening,
+          messageId: "useImageComponent",
+          data: { fieldName: fieldText },
+          fix: fixable
+            ? (fixer) =>
+                fixer.replaceText(
+                  element,
+                  `<Image field={${fieldText}}${serializeAttributes(sourceCode, opening.attributes, ["src"])} />`
+                )
+            : null,
+        });
       },
     };
   },
-};
+});

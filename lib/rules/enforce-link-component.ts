@@ -1,124 +1,78 @@
+import { ESLintUtils } from "@typescript-eslint/utils";
+import { buildAnchorReplacement } from "../utils/anchor";
+import { createRule } from "../utils/create-rule";
+import { getFieldExpression } from "../utils/fields";
 import {
-  ESLintUtils,
-  TSESTree,
-  AST_NODE_TYPES,
-} from "@typescript-eslint/utils";
-import {
-  RuleContext,
-  RuleFixer,
-} from "@typescript-eslint/utils/dist/ts-eslint";
-import typeUtils from "./utils/type-checking";
-const { getType, isLinkField } = typeUtils;
+  createImportTracker,
+  importOptionsSchema,
+  MISSING_IMPORT_MESSAGE,
+  type ImportOptions,
+} from "../utils/imports";
+import { getAttribute, getAttributeExpression, isElementNamed } from "../utils/jsx";
+import { getFieldPackage, isLinkField, resolveType } from "../utils/type-checking";
 
-export default {
-  defaultOptions: [] as never[],
+type Options = [ImportOptions];
+type MessageIds = "useLinkComponent" | "missingImport";
+
+export default createRule<Options, MessageIds>({
+  name: "enforce-link-component",
   meta: {
     type: "problem",
     docs: {
       description:
-        "Ensure `<Link>` is used instead of raw `<a>` for `LinkField`.",
-      recommended: "recommended",
-    },
-    messages: {
-      useLinkComponent:
-        "Use `<Link field={{{fieldName}}} />` instead of `<a>`. Make sure you are using `LinkField`.",
+        "Render Sitecore link fields (`LinkField`) with `<Link>` instead of a raw `<a href={...}>`",
+      recommended: true,
+      requiresTypeChecking: true,
     },
     fixable: "code",
-    schema: [],
+    messages: {
+      useLinkComponent:
+        "Use `<Link field={{{fieldName}}} />` instead of `<a>` for the Sitecore link field `{{fieldName}}`, so the link stays editable in Sitecore.",
+      missingImport: MISSING_IMPORT_MESSAGE,
+    },
+    schema: [importOptionsSchema],
   },
-
-  create(context: RuleContext<"useLinkComponent", never[]>) {
-    const parserServices = ESLintUtils.getParserServices(context);
-    if (!parserServices || !parserServices.program) return {};
-    const checker = parserServices.program.getTypeChecker();
+  defaultOptions: [{}],
+  create(context, [options]) {
+    const services = ESLintUtils.getParserServices(context);
+    const { sourceCode } = context;
+    const imports = createImportTracker(sourceCode, "Link", options, (descriptor) =>
+      context.report({ messageId: "missingImport", ...descriptor })
+    );
 
     return {
-      JSXOpeningElement(node: TSESTree.JSXOpeningElement) {
-        if (
-          node.name.type !== AST_NODE_TYPES.JSXIdentifier ||
-          node.name.name !== "a"
-        )
-          return;
+      ...imports.listeners,
+      JSXElement(element) {
+        const opening = element.openingElement;
+        if (!isElementNamed(opening, "a")) return;
 
-        const hrefAttr = node.attributes.find(
-          (attr): attr is TSESTree.JSXAttribute =>
-            attr.type === AST_NODE_TYPES.JSXAttribute &&
-            attr.name.type === AST_NODE_TYPES.JSXIdentifier &&
-            attr.name.name === "href"
-        );
-        if (
-          !hrefAttr?.value ||
-          hrefAttr.value.type !== AST_NODE_TYPES.JSXExpressionContainer
-        ) {
-          console.warn("⚠️ `href` does not contain an expression, skipping.");
-          return;
-        }
+        const href = getAttribute(opening, "href");
+        const expression = href && getAttributeExpression(href);
+        if (!expression) return;
 
-        const expression = hrefAttr.value.expression;
-        if (expression.type !== AST_NODE_TYPES.MemberExpression) {
-          console.warn(
-            "⚠️ `href` is not a MemberExpression, skipping:",
-            context.getSourceCode().getText(expression)
-          );
-          return;
-        }
+        const field = getFieldExpression(expression, ["href"]);
+        const type = field && resolveType(services, field);
+        if (!field || !type || !isLinkField(type)) return;
 
-        const tsNode = parserServices.esTreeNodeToTSNodeMap.get(
-          expression.object
-        );
-        if (!tsNode) {
-          console.warn("⚠️ TypeScript Node not found.");
-          return;
-        }
+        const fieldText = sourceCode.getText(field);
+        // `Link` is commonly bound to next/link; never shadow it.
+        const binding = imports.binding(element);
+        const fixable = binding !== "conflict";
+        if (binding === "missing") imports.require(opening, getFieldPackage(type));
 
-        const type = getType(tsNode, checker);
-
-        if (isLinkField(type)) {
-          let fieldName = expression as TSESTree.MemberExpression;
-          while (fieldName.type === AST_NODE_TYPES.MemberExpression) {
-            if (
-              fieldName.property.type === AST_NODE_TYPES.Identifier &&
-              (fieldName.property.name === "value" ||
-                fieldName.property.name === "href")
-            ) {
-              fieldName = fieldName.object as TSESTree.MemberExpression;
-            } else {
-              break;
-            }
-          }
-
-          const fieldNameText = context.getSourceCode().getText(fieldName);
-          const parentElement = node.parent as TSESTree.JSXElement;
-
-          // Extract all attributes from the opening element except 'href'
-          const attributes = node.attributes
-            .filter((attr) => {
-              if (attr.type === AST_NODE_TYPES.JSXAttribute) {
-                return (
-                  attr.name.type === AST_NODE_TYPES.JSXIdentifier &&
-                  attr.name.name !== "href"
-                );
-              }
-              return attr.type === AST_NODE_TYPES.JSXSpreadAttribute;
-            })
-            .map((attr) => context.getSourceCode().getText(attr))
-            .join(" ");
-
-          const attributesStr = attributes ? ` ${attributes}` : "";
-
-          context.report({
-            node,
-            messageId: "useLinkComponent",
-            data: { fieldName: fieldNameText },
-            fix(fixer: RuleFixer) {
-              return fixer.replaceText(
-                parentElement,
-                `<Link field={${fieldNameText}}${attributesStr} />`
-              );
-            },
-          });
-        }
+        context.report({
+          node: opening,
+          messageId: "useLinkComponent",
+          data: { fieldName: fieldText },
+          fix: fixable
+            ? (fixer) =>
+                fixer.replaceText(
+                  element,
+                  buildAnchorReplacement(sourceCode, element, "Link", fieldText, ["text"])
+                )
+            : null,
+        });
       },
     };
   },
-};
+});
