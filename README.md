@@ -77,6 +77,10 @@ Available flat configs:
 | `flat/strict` | the five component rules | `error` |
 | `flat/all` | alias of `flat/recommended` | `warn` |
 
+The flat configs apply to TypeScript files only (`**/*.ts`, `**/*.tsx`, `**/*.mts`, `**/*.cts`), so
+`eslint .` does not stop on `eslint.config.mjs`, `next.config.js` and other files that are parsed without
+type information. To lint type-checked `.js` / `.jsx` files too, enable the rules individually for them.
+
 ### Legacy config (ESLint 8, `.eslintrc.cjs`)
 
 ```js

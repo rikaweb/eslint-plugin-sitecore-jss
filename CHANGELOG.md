@@ -34,6 +34,8 @@ unchanged, so most 1.x setups only need the dependency update.
 
 - Flat configs for ESLint 9+: `flat/recommended` (warn), `flat/strict` (error), `flat/all` (alias of
   recommended); legacy `strict` next to `recommended` and `all`. `plugin.meta` carries name and version.
+  The flat configs are scoped to `**/*.ts`, `**/*.tsx`, `**/*.mts` and `**/*.cts`, so `eslint .` does not
+  fail on JavaScript files that are parsed without type information (`eslint.config.mjs`, `next.config.js`).
 - Content SDK support: field types from `@sitecore-content-sdk/nextjs` / `@sitecore-content-sdk/react` are
   recognised, and the import fixer targets the Content SDK package when the field's type comes from it.
 - Rule option `importSource` (string) on every component rule: the package to import a component from when

@@ -89,6 +89,17 @@ describe("plugin entry (dist/index.js)", () => {
     expect(config.rules).toEqual(severityMap("error"));
   });
 
+  it("flat configs only apply to TypeScript files, so untyped JS files are not linted into a crash", () => {
+    for (const name of ["flat/recommended", "flat/strict", "flat/all"]) {
+      expect(plugin.configs[name][0].files, name).toEqual([
+        "**/*.ts",
+        "**/*.tsx",
+        "**/*.mts",
+        "**/*.cts",
+      ]);
+    }
+  });
+
   it("flat/all is an alias of flat/recommended", () => {
     expect(plugin.configs["flat/all"]).toBe(plugin.configs["flat/recommended"]);
   });

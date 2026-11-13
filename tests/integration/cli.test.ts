@@ -113,6 +113,15 @@ describe.skipIf(eslintMajor < 9)(`ESLint ${eslintMajor} CLI with the flat config
     expect(result.messages.filter((message) => message.fix).length).toBe(EXPECTED_FIXABLE);
   });
 
+  it("leaves plain JS files alone instead of failing for missing type information", () => {
+    // The flat configs are scoped to TypeScript files; `eslint .` in a real project also visits
+    // eslint.config.mjs, next.config.js and the like, which are parsed without type information.
+    const { results, stderr, status } = runCli(["eslint.config.mjs"]);
+    expect(stderr.trim()).toBe("");
+    expect(status).toBe(0);
+    expect(results[0].messages).toEqual([]);
+  });
+
   it("flat/strict reports the same findings as errors", () => {
     const { results, status } = runCli(["-c", "eslint.strict.config.mjs", "src/Sample.tsx"]);
     expect(status).toBe(1);

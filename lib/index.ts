@@ -56,9 +56,17 @@ const legacyStrict: TSESLint.ClassicConfig.Config = {
 
 // Flat configs (ESLint 9+): `import sitecoreJss from "eslint-plugin-sitecore-jss"`
 // then spread `sitecoreJss.configs["flat/recommended"]` into your config array.
+//
+// The flat configs are scoped to TypeScript files. Every rule needs type information, and a rule that
+// is enabled for a file parsed without it (`eslint.config.mjs`, `next.config.js`, …) makes ESLint stop
+// with a configuration error instead of linting. To lint type-checked `.js` / `.jsx` files as well,
+// enable the rules individually for those files.
+const TYPESCRIPT_FILES = ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts"];
+
 const flatRecommended: TSESLint.FlatConfig.ConfigArray = [
   {
     name: `${PLUGIN_NAME}/recommended`,
+    files: TYPESCRIPT_FILES,
     plugins: { [PLUGIN_NAME]: plugin },
     rules: ruleSet("warn"),
   },
@@ -66,6 +74,7 @@ const flatRecommended: TSESLint.FlatConfig.ConfigArray = [
 const flatStrict: TSESLint.FlatConfig.ConfigArray = [
   {
     name: `${PLUGIN_NAME}/strict`,
+    files: TYPESCRIPT_FILES,
     plugins: { [PLUGIN_NAME]: plugin },
     rules: ruleSet("error"),
   },
