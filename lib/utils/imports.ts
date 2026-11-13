@@ -150,6 +150,15 @@ export function planImport(
   if (last) {
     return { source, fix: (fixer) => fixer.insertTextAfter(last, `\n${statement}`) };
   }
+  // No imports yet. A directive prologue ("use client", "use strict") must stay the first thing in
+  // the file, so the import goes after the last directive rather than above it.
+  const directives = program.body.filter(
+    (node) => node.type === AST_NODE_TYPES.ExpressionStatement && node.directive !== undefined
+  );
+  const lastDirective = directives[directives.length - 1];
+  if (lastDirective) {
+    return { source, fix: (fixer) => fixer.insertTextAfter(lastDirective, `\n${statement}`) };
+  }
   const first = program.body[0];
   return {
     source,

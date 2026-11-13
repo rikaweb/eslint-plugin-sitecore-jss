@@ -323,6 +323,48 @@ describe("enforce-text-component", () => {
         ],
       },
       {
+        name: "a file without imports gets the import as its first statement",
+        code: [
+          `declare const title: import("${SDK}").Field<string>;`,
+          `<h1>{title.value}</h1>;`,
+          "",
+        ].join("\n"),
+        output: [
+          `import { Text } from "${SDK}";`,
+          `declare const title: import("${SDK}").Field<string>;`,
+          `<Text field={title} tag="h1" />;`,
+          "",
+        ].join("\n"),
+        errors: [
+          { messageId: "useTextComponent" },
+          { messageId: "missingImport", data: { name: "Text", source: SDK } },
+        ],
+      },
+      {
+        name: 'a file without imports keeps "use client" first: the import goes after the directives',
+        code: [
+          `"use client";`,
+          `"use strict";`,
+          `// a comment`,
+          `declare const title: import("${SDK}").Field<string>;`,
+          `<h1>{title.value}</h1>;`,
+          "",
+        ].join("\n"),
+        output: [
+          `"use client";`,
+          `"use strict";`,
+          `import { Text } from "${SDK}";`,
+          `// a comment`,
+          `declare const title: import("${SDK}").Field<string>;`,
+          `<Text field={title} tag="h1" />;`,
+          "",
+        ].join("\n"),
+        errors: [
+          { messageId: "useTextComponent" },
+          { messageId: "missingImport", data: { name: "Text", source: SDK } },
+        ],
+      },
+      {
         name: "Text already imported from another Sitecore package needs no import",
         code: [
           `import { Text } from "@sitecore-jss/sitecore-jss-react";`,
