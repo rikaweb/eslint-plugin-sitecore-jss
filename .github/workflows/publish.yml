@@ -1,21 +1,34 @@
-name: Publish to NPM
+name: Publish to npm
 
 on:
-  workflow_dispatch:
   release:
-    types: [created]
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # npm provenance
 
 jobs:
-  build:
+  publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "18.x"
-          registry-url: "https://registry.npmjs.org/"
-      - run: npm install
-      - run: npm run build
-      - run: npm publish --access public
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          cache: npm
+      - run: npm ci
+      # A release event carries its tag; a manual run must be started on a tag ("Run workflow" > Tags),
+      # never on a branch, so that only a tagged tree whose version matches the tag can be published.
+      - name: Check that the run is on a tag that matches package.json
+        env:
+          TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref_name }}
+          REF_TYPE: ${{ github.event_name == 'release' && 'tag' || github.ref_type }}
+        run: |
+          node -e 'if (process.env.REF_TYPE !== "tag") { console.error("Refusing to publish from a " + process.env.REF_TYPE + " (" + process.env.TAG + "); run this workflow on a release tag."); process.exit(1); } const v = require("./package.json").version; const t = process.env.TAG.replace(/^v/, ""); if (v !== t) { console.error("package.json is " + v + " but the tag is " + t); process.exit(1); }'
+      - name: Publish (prepublishOnly runs lint, typecheck, test and build)
+        run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
