@@ -36,6 +36,7 @@ Not reported:
 <a href="/about">About</a>
 <a href={url}>Go</a>                                   // plain string
 <a href={props.fields.file.value.src}>…</a>            // FileField: enforce-file-component's job
+<a href={nav.home.value.href}>Home</a>                 // your own `LinkField` type, not Sitecore's
 ```
 
 ## What the fix does
@@ -51,7 +52,25 @@ you can wrap it in `<Text field={title} />`.
 
 No fix is offered when `Link` is already bound to something else — typically `import Link from
 "next/link"`. The problem is still reported; alias one of the imports (for example
-`import NextLink from "next/link"`) and run `--fix` again.
+`import NextLink from "next/link"`, or `import { Link as SitecoreLink }` from the Sitecore package, which
+the fix then uses) and run `--fix` again.
+
+No fix is offered either, and the problem is still reported, when:
+
+- the `<a>` has no children (`<a href={link.value.href} aria-label="Home" className="logo" />`). The
+  anchor renders nothing, but `<Link>` without children renders the link text, or the URL when the text
+  is empty, so an icon link would start showing text. Decide what the link should contain and convert
+  it by hand.
+- the fix would delete a comment (`<a href={…}>{/* label */}{link.value.text}</a>`). Comments among
+  children that are kept are carried over.
+
+### Optional fields
+
+The fix passes the field on exactly as it was read: `<a href={card.link?.value.href}>` becomes
+`<Link field={card.link}>`. `<Link>` declares `field` as required, so with an optional field
+(`link?: LinkField`) under `strictNullChecks` TypeScript reports the new line. `<Link>` renders nothing
+for an empty field at run time; add the guard that fits the component, for example
+`{card.link && <Link field={card.link} />}`.
 
 ## Options
 

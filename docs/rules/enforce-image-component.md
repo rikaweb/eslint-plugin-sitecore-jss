@@ -47,7 +47,9 @@ value such as `alt={props.fields.image.value?.alt}` (the component accepts them 
 `missingImport` problem with its own fix adds `Image` to the imports when needed.
 
 No fix is offered when `Image` is already bound to something else — typically `import Image from
-"next/image"`. The problem is still reported; rename one of the two imports and run `--fix` again.
+"next/image"`. The problem is still reported; rename one of the two imports and run `--fix` again. If
+the Sitecore component is imported under an alias (`import { Image as SitecoreImage }`), the fix uses
+that alias. A fix that would delete a comment (`<img /* note */ src={…} />`) is not offered either.
 
 Both `ImageField` and a bare `ImageFieldValue` are recognised. Under `strictNullChecks`,
 `ImageField.value` is optional; the rule looks through the `undefined` member of the union.

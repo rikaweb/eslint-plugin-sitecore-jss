@@ -33,6 +33,21 @@ skipped; lint and typecheck clean. The findings below describe the code as revie
 
 The nice-to-have items (N1 to N9) are unchanged.
 
+## Status after 2.0.1 (2026-11-18)
+
+- N1: fixed. A field type must be declared by `@sitecore-jss/*` or `@sitecore-content-sdk/*`.
+- N2: fixed. No fix when it would delete a comment.
+- N3: documented, not changed. Skipping the fix would take it away from every optional link / file
+  field, which is the common way to type them; the result is a visible type error, not lost code.
+- N4: fixed. An `<a>` without children is reported without a fix.
+- N5: fixed. An aliased Sitecore import is used under its alias.
+- N6: fixed. No source maps or declaration maps are emitted.
+- N7: the rule-level gaps were closed with the fixes; added a `.js` file under the legacy config and a CI
+  job for ESLint 8.57 / parser 7.18 / TypeScript 5.4. TypeScript 4.8.4 is not covered: `lib/` itself
+  needs 4.9+ to build.
+- N8: fixed. The publish workflow pins its actions to commit SHAs.
+- N9: the cast on the field is documented under "not reported"; the 2.0.0 date was already corrected.
+
 ## What was checked
 
 - `npm test`: 126 passed, 2 skipped (the legacy suite, skipped on ESLint 10). `npm run lint` and

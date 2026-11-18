@@ -50,9 +50,10 @@ Not reported:
 | `<RichText tag="p">` (also `tag={"p"}`) | the `tag` attribute is removed |
 
 Attributes and spreads are kept. A `missingImport` problem with its own fix adds `RichText` to the
-imports when needed.
+imports when needed; a `RichText` imported under an alias is used as is.
 
 No fix is offered (the problem is still reported) when other children sit next to the field, when the
+fix would delete a comment (`<div>{/* note */}{body.value}</div>`), when the
 wrapper is a component (`useRichTextComponentInWrapper`) or an `<a href>`, when `RichText` is already
 bound to something else in the file, or when the `dangerouslySetInnerHTML` value has a fallback or guard
 that `<RichText>` could not reproduce (`body.value || "<p>Default</p>"`, `body.value ?? other.value`).
