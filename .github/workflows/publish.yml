@@ -5,21 +5,27 @@ on:
     types: [published]
   workflow_dispatch:
 
+# Authentication: npm tries Trusted Publishing (OIDC) first and falls back to the NPM_TOKEN secret.
+# OIDC needs `id-token: write`, npm >= 11.5.1 (Node 24 bundles npm 11) and a trusted publisher set up
+# once on npmjs.com for this repository and this workflow file name (publish.yml); until that exists,
+# the token is what authenticates. Renaming this file breaks the trusted publisher.
 permissions:
   contents: read
-  id-token: write # npm provenance
+  id-token: write # npm provenance and Trusted Publishing (OIDC)
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      # Third-party actions are pinned to a commit: this job can publish to npm.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24 # bundles npm 11; npm 10 fails provenance signing with TLOG_CREATE_ENTRY_ERROR (409)
           registry-url: https://registry.npmjs.org
           cache: npm
       - run: npm ci
+      - run: npm --version
       # A release event carries its tag; a manual run must be started on a tag ("Run workflow" > Tags),
       # never on a branch, so that only a tagged tree whose version matches the tag can be published.
       - name: Check that the run is on a tag that matches package.json
