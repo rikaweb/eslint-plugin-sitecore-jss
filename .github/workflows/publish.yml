@@ -20,12 +20,14 @@ jobs:
           registry-url: https://registry.npmjs.org
           cache: npm
       - run: npm ci
-      - name: Check that the release tag matches package.json
-        if: github.event_name == 'release'
+      # A release event carries its tag; a manual run must be started on a tag ("Run workflow" > Tags),
+      # never on a branch, so that only a tagged tree whose version matches the tag can be published.
+      - name: Check that the run is on a tag that matches package.json
         env:
-          TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref_name }}
+          REF_TYPE: ${{ github.event_name == 'release' && 'tag' || github.ref_type }}
         run: |
-          node -e 'const v = require("./package.json").version; const t = process.env.TAG.replace(/^v/, ""); if (v !== t) { console.error("package.json is " + v + " but the release tag is " + t); process.exit(1); }'
+          node -e 'if (process.env.REF_TYPE !== "tag") { console.error("Refusing to publish from a " + process.env.REF_TYPE + " (" + process.env.TAG + "); run this workflow on a release tag."); process.exit(1); } const v = require("./package.json").version; const t = process.env.TAG.replace(/^v/, ""); if (v !== t) { console.error("package.json is " + v + " but the tag is " + t); process.exit(1); }'
       - name: Publish (prepublishOnly runs lint, typecheck, test and build)
         run: npm publish --provenance --access public
         env:

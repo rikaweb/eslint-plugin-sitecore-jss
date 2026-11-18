@@ -89,14 +89,11 @@ describe("plugin entry (dist/index.js)", () => {
     expect(config.rules).toEqual(severityMap("error"));
   });
 
-  it("flat configs only apply to TypeScript files, so untyped JS files are not linted into a crash", () => {
+  it("flat configs only apply to .tsx files, so files without type information are not linted into a crash", () => {
+    // JSX only exists in .tsx; naming .ts / .mts / .cts would make ESLint lint files (vitest.config.mts,
+    // next.config.mts) that the consumer's parser block may not cover.
     for (const name of ["flat/recommended", "flat/strict", "flat/all"]) {
-      expect(plugin.configs[name][0].files, name).toEqual([
-        "**/*.ts",
-        "**/*.tsx",
-        "**/*.mts",
-        "**/*.cts",
-      ]);
+      expect(plugin.configs[name][0].files, name).toEqual(["**/*.tsx"]);
     }
   });
 

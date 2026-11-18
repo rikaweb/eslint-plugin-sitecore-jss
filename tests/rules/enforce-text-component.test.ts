@@ -51,6 +51,27 @@ describe("enforce-text-component", () => {
         name: "an unbound <Text> in a file without Sitecore imports is not ours",
         code: `<Text tag="h1" />;\n`,
       },
+      {
+        name: "<title> can only hold text: reading .value there is correct",
+        code: withProps(`<title>{props.fields.title.value}</title>;`),
+      },
+      {
+        name: "<option> and <textarea> are text-only too",
+        code: withProps(
+          `<select><option value="a">{props.fields.title.value}</option></select>;\n<textarea>{props.fields.heading.value}</textarea>;`
+        ),
+      },
+      {
+        name: "Text imported from the importSource package counts as imported",
+        options: [{ importSource: "@acme/sitecore-ui" }],
+        code: [
+          `import { Text } from "@acme/sitecore-ui";`,
+          `import type { Field } from "${JSS}";`,
+          `declare const title: Field<string>;`,
+          `<Text field={title} tag="h1" />;`,
+          "",
+        ].join("\n"),
+      },
     ],
     invalid: [
       {
@@ -86,6 +107,95 @@ describe("enforce-text-component", () => {
         name: "a comment sibling does not block the fix",
         code: withProps(`<h1>{/* page heading */}{props.fields.title.value}</h1>;`),
         output: withProps(`<Text field={props.fields.title} tag="h1" />;`),
+        errors: [{ messageId: "useTextComponent" }],
+      },
+      {
+        name: "an entity next to the field renders a character: report without a fix",
+        code: withProps(`<span>{props.fields.title.value}&nbsp;</span>;`),
+        output: null,
+        errors: [{ messageId: "useTextComponent" }],
+      },
+      {
+        name: "a numeric entity before the field blocks the fix too",
+        code: withProps(`<span>&#160;{props.fields.heading.value}</span>;`),
+        output: null,
+        errors: [{ messageId: "useTextComponent" }],
+      },
+      {
+        name: "<a href> with a text field child is never rewritten to <Text tag=\"a\">",
+        code: withProps(
+          `<a href={props.fields.link.value.href} className="cta">{props.fields.title.value}</a>;`
+        ),
+        output: null,
+        errors: [
+          {
+            messageId: "useTextComponentInWrapper",
+            data: { tagName: "a", fieldName: "props.fields.title" },
+          },
+        ],
+      },
+      {
+        name: "<a href> with a literal href is left to the author as well",
+        code: withProps(`<a href="/about">{props.fields.title.value}</a>;`),
+        output: null,
+        errors: [{ messageId: "useTextComponentInWrapper" }],
+      },
+      {
+        name: "an <a> without href is an ordinary element",
+        code: withProps(`<a id="top">{props.fields.title.value}</a>;`),
+        output: withProps(`<Text field={props.fields.title} tag="a" id="top" />;`),
+        errors: [{ messageId: "useTextComponent" }],
+      },
+      {
+        name: "the fix reuses a Text that is imported from the importSource package",
+        options: [{ importSource: "@acme/sitecore-ui" }],
+        code: [
+          `import { Text } from "@acme/sitecore-ui";`,
+          `import type { Field } from "${JSS}";`,
+          `declare const title: Field<string>;`,
+          `<h2>{title.value}</h2>;`,
+          "",
+        ].join("\n"),
+        output: [
+          `import { Text } from "@acme/sitecore-ui";`,
+          `import type { Field } from "${JSS}";`,
+          `declare const title: Field<string>;`,
+          `<Text field={title} tag="h2" />;`,
+          "",
+        ].join("\n"),
+        errors: [{ messageId: "useTextComponent" }],
+      },
+      {
+        name: "an existing import from the importSource package is extended",
+        options: [{ importSource: "@acme/sitecore-ui" }],
+        code: [
+          `import { Placeholder } from "@acme/sitecore-ui";`,
+          `import { Field } from "${JSS}";`,
+          `declare const title: Field<string>;`,
+          `<h2>{title.value}</h2>;`,
+          `Placeholder;`,
+          "",
+        ].join("\n"),
+        output: [
+          `import { Placeholder, Text } from "@acme/sitecore-ui";`,
+          `import { Field } from "${JSS}";`,
+          `declare const title: Field<string>;`,
+          `<Text field={title} tag="h2" />;`,
+          `Placeholder;`,
+          "",
+        ].join("\n"),
+        errors: [
+          { messageId: "useTextComponent" },
+          { messageId: "missingImport", data: { name: "Text", source: "@acme/sitecore-ui" } },
+        ],
+      },
+      {
+        name: "the DOM global Text used in the file is a conflict: report without a fix",
+        code: withProps(
+          `declare const node: unknown;\nexport const isText = node instanceof Text;\n<h1>{props.fields.title.value}</h1>;`,
+          { imports: FIELD_TYPES }
+        ),
+        output: null,
         errors: [{ messageId: "useTextComponent" }],
       },
       {

@@ -57,16 +57,18 @@ const legacyStrict: TSESLint.ClassicConfig.Config = {
 // Flat configs (ESLint 9+): `import sitecoreJss from "eslint-plugin-sitecore-jss"`
 // then spread `sitecoreJss.configs["flat/recommended"]` into your config array.
 //
-// The flat configs are scoped to TypeScript files. Every rule needs type information, and a rule that
-// is enabled for a file parsed without it (`eslint.config.mjs`, `next.config.js`, …) makes ESLint stop
-// with a configuration error instead of linting. To lint type-checked `.js` / `.jsx` files as well,
-// enable the rules individually for those files.
-const TYPESCRIPT_FILES = ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts"];
+// The flat configs are scoped to `.tsx` files. Every rule needs type information, and a rule that is
+// enabled for a file parsed without it (`eslint.config.mjs`, `next.config.js`, `vitest.config.mts`, …)
+// makes ESLint stop with a configuration error instead of linting. The rules only look at JSX, which
+// TypeScript allows in `.tsx` files only, so `.ts` / `.mts` / `.cts` files have nothing to report; naming
+// them here would also make ESLint start linting files the user's parser block may not cover.
+// To lint type-checked `.jsx` files as well, enable the rules individually for those files.
+const TSX_FILES = ["**/*.tsx"];
 
 const flatRecommended: TSESLint.FlatConfig.ConfigArray = [
   {
     name: `${PLUGIN_NAME}/recommended`,
-    files: TYPESCRIPT_FILES,
+    files: TSX_FILES,
     plugins: { [PLUGIN_NAME]: plugin },
     rules: ruleSet("warn"),
   },
@@ -74,7 +76,7 @@ const flatRecommended: TSESLint.FlatConfig.ConfigArray = [
 const flatStrict: TSESLint.FlatConfig.ConfigArray = [
   {
     name: `${PLUGIN_NAME}/strict`,
-    files: TYPESCRIPT_FILES,
+    files: TSX_FILES,
     plugins: { [PLUGIN_NAME]: plugin },
     rules: ruleSet("error"),
   },

@@ -98,6 +98,15 @@ describe("enforce-image-component", () => {
         output: null,
         errors: [{ messageId: "useImageComponent" }],
       },
+      {
+        name: "the DOM global Image used in the file is a conflict: report without a fix",
+        code: withProps(
+          `export const preload = new Image();\n<img src={props.fields.image.value?.src} />;`,
+          { imports: FIELD_TYPES }
+        ),
+        output: null,
+        errors: [{ messageId: "useImageComponent" }],
+      },
     ],
   });
 });

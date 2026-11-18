@@ -53,8 +53,10 @@ Attributes and spreads are kept. A `missingImport` problem with its own fix adds
 imports when needed.
 
 No fix is offered (the problem is still reported) when other children sit next to the field, when the
-wrapper is a component (`useRichTextComponentInWrapper`), or when `RichText` is already bound to
-something else in the file.
+wrapper is a component (`useRichTextComponentInWrapper`) or an `<a href>`, when `RichText` is already
+bound to something else in the file, or when the `dangerouslySetInnerHTML` value has a fallback or guard
+that `<RichText>` could not reproduce (`body.value || "<p>Default</p>"`, `body.value ?? other.value`).
+`<title>`, `<option>`, `<textarea>`, `<script>` and `<style>` are never reported.
 
 ## Options
 
@@ -65,7 +67,7 @@ something else in the file.
 ## Messages
 
 - `useRichTextComponent` — the field is rendered by hand inside an HTML element.
-- `useRichTextComponentInWrapper` — the field is rendered by hand inside a component.
+- `useRichTextComponentInWrapper` — the field is rendered by hand inside a component or an `<a href>`.
 - `avoidNestedPTags` — the field is rendered inside `<p>`.
 - `avoidRichTextPTag` — `<RichText tag="p">`.
 - `avoidDangerouslySetInnerHTML` — the field's HTML is injected with `dangerouslySetInnerHTML`.

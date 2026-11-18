@@ -37,7 +37,12 @@ Not reported:
 <p>{props.fields.title.value.length}</p> // a value derived from the field
 <Card title={props.fields.title} />      // the field is passed on, not rendered
 <span>{count.value}</span>               // `Field<number>` (not covered in 2.0)
+<title>{props.fields.title.value}</title> // text-only element: `.value` is correct here
 ```
+
+`<title>`, `<option>`, `<textarea>`, `<script>` and `<style>` can only hold plain text. `<Text tag="title">`
+would not be picked up by `next/head`, and the editing markup `<Text>` emits is not valid inside them, so
+these elements are never reported.
 
 ## What the fix does
 
@@ -49,9 +54,10 @@ The fix is **not** offered when it could lose code or shadow a binding; the prob
 
 | Situation | Message |
 |---|---|
-| other children next to the field (`<h3>Hello {title.value}</h3>`) | `useTextComponent`, no fix |
+| other children next to the field (`<h3>Hello {title.value}</h3>`, `<span>{title.value}&nbsp;</span>`) | `useTextComponent`, no fix |
+| the element is an `<a href>` (`<a href={link.value.href}>{title.value}</a>`) | `useTextComponentInWrapper`: `enforce-link-component` / `enforce-file-component` turn the anchor into `<Link>` / `<File>`; put a `<Text>` inside it |
 | the wrapper is a component (`<Typography>{title.value}</Typography>`) | `useTextComponentInWrapper` (pass the field to `<Text>`, or let the component accept the field) |
-| `Text` is already bound to something else (a local, an import from another package, a type-only import) | `useTextComponent`, no fix |
+| `Text` is already bound to something else (a local, an import from another package, a type-only import), or the file uses the DOM global `Text` (`node instanceof Text`) | `useTextComponent`, no fix |
 
 ## Options
 
@@ -61,12 +67,12 @@ The fix is **not** offered when it could lose code or shadow a binding; the prob
 
 | Option | Type | Description |
 |---|---|---|
-| `importSource` | `string` | Package to import `Text` from when the file has no Sitecore import that can be extended. Defaults to the package family that declares the field's type (`@sitecore-content-sdk/nextjs` or `@sitecore-jss/sitecore-jss-nextjs`). |
+| `importSource` | `string` | Package to import `Text` from when the file has no Sitecore import that can be extended. Defaults to the package family that declares the field's type (`@sitecore-content-sdk/nextjs` or `@sitecore-jss/sitecore-jss-nextjs`). A `Text` already imported from this package is recognised as the Sitecore component. |
 
 ## Messages
 
 - `useTextComponent` — the field is rendered by hand inside an HTML element.
-- `useTextComponentInWrapper` — the field is rendered by hand inside a component.
+- `useTextComponentInWrapper` — the field is rendered by hand inside a component or an `<a href>`.
 - `missingImport` — `Text` is needed but not imported from a Sitecore package.
 
 ## Related

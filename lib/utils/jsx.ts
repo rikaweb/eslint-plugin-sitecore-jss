@@ -83,10 +83,36 @@ export function serializeAttributes(
   return kept.length === 0 ? "" : ` ${kept.map((attribute) => sourceCode.getText(attribute)).join(" ")}`;
 }
 
-/** Children that render something: whitespace-only text and JSX comment containers are ignored. */
+/**
+ * Elements whose content model is plain text. `<Text tag="title">` cannot work there: frameworks only
+ * pick up a literal `<title>` (next/head), and the editing markup `<Text>` emits is not valid inside
+ * them. Reading `.value` is the right thing in these elements, so the text rules leave them alone.
+ */
+const TEXT_ONLY_ELEMENTS: readonly string[] = ["title", "option", "textarea", "script", "style"];
+
+export function isTextOnlyElement(opening: TSESTree.JSXOpeningElement): boolean {
+  return (
+    opening.name.type === AST_NODE_TYPES.JSXIdentifier &&
+    TEXT_ONLY_ELEMENTS.includes(opening.name.name)
+  );
+}
+
+/**
+ * `<a href=…>`: the anchor belongs to the link / file rules. Rewriting it into `<Text tag="a" href=…>`
+ * would keep the hand-written href and hide the link finding, so the text rules never fix it.
+ */
+export function isAnchorWithHref(opening: TSESTree.JSXOpeningElement): boolean {
+  return isElementNamed(opening, "a") && getAttribute(opening, "href") !== undefined;
+}
+
+/**
+ * Children that render something: whitespace-only text and JSX comment containers are ignored.
+ * Only source whitespace counts: an entity such as `&nbsp;` renders a character and is kept
+ * (`String.prototype.trim` on the decoded value would swallow U+00A0).
+ */
 export function meaningfulChildren(element: TSESTree.JSXElement): TSESTree.JSXChild[] {
   return element.children.filter((child) => {
-    if (child.type === AST_NODE_TYPES.JSXText) return child.value.trim() !== "";
+    if (child.type === AST_NODE_TYPES.JSXText) return !/^[ \t\r\n]*$/.test(child.raw);
     if (child.type === AST_NODE_TYPES.JSXExpressionContainer) {
       return child.expression.type !== AST_NODE_TYPES.JSXEmptyExpression;
     }

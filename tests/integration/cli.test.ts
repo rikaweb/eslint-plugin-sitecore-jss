@@ -122,6 +122,20 @@ describe.skipIf(eslintMajor < 9)(`ESLint ${eslintMajor} CLI with the flat config
     expect(results[0].messages).toEqual([]);
   });
 
+  it("`eslint .` does not crash on .mts / .ts files the parser block does not cover", () => {
+    // tool.config.mts and plain.ts sit next to a parser block that only names .tsx (like the README's
+    // only names ts/tsx). The flat configs must not pull them in: a rule enabled for a file parsed
+    // without type information stops ESLint with a configuration error.
+    const { results, stderr, status } = runCli(["."]);
+    expect(stderr.trim()).toBe("");
+    expect(status).toBe(0);
+    expect(results.some((result) => result.messages.some((message) => message.fatal))).toBe(false);
+    const linted = results.map((result) => path.basename((result as { filePath?: string }).filePath ?? ""));
+    expect(linted).toContain("Sample.tsx");
+    expect(linted).not.toContain("tool.config.mts");
+    expect(linted).not.toContain("plain.ts");
+  });
+
   it("flat/strict reports the same findings as errors", () => {
     const { results, status } = runCli(["-c", "eslint.strict.config.mjs", "src/Sample.tsx"]);
     expect(status).toBe(1);

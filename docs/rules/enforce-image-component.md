@@ -56,7 +56,7 @@ Both `ImageField` and a bare `ImageFieldValue` are recognised. Under `strictNull
 
 | Option | Type | Description |
 |---|---|---|
-| `importSource` | `string` | Package to import `Image` from when the file has no Sitecore import that can be extended. Defaults to the package family that declares the field's type. |
+| `importSource` | `string` | Package to import `Image` from when the file has no Sitecore import that can be extended. Defaults to the package family that declares the field's type. A `Image` already imported from this package is recognised as the Sitecore component. |
 
 ## Messages
 

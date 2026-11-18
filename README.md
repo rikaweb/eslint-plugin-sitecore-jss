@@ -77,25 +77,33 @@ Available flat configs:
 | `flat/strict` | the five component rules | `error` |
 | `flat/all` | alias of `flat/recommended` | `warn` |
 
-The flat configs apply to TypeScript files only (`**/*.ts`, `**/*.tsx`, `**/*.mts`, `**/*.cts`), so
-`eslint .` does not stop on `eslint.config.mjs`, `next.config.js` and other files that are parsed without
-type information. To lint type-checked `.js` / `.jsx` files too, enable the rules individually for them.
+The flat configs apply to `**/*.tsx` files only. The rules look at JSX, which TypeScript only allows in
+`.tsx` files, so nothing is missed, and `eslint .` does not stop on `eslint.config.mjs`, `next.config.js`,
+`vitest.config.mts` and other files that are parsed without type information. To lint type-checked `.jsx`
+files too, enable the rules individually for them.
 
 ### Legacy config (ESLint 8, `.eslintrc.cjs`)
 
 ```js
 module.exports = {
-  parser: "@typescript-eslint/parser",
-  parserOptions: {
-    project: "./tsconfig.json",
-    tsconfigRootDir: __dirname,
-  },
-  extends: ["plugin:sitecore-jss/recommended"],
+  overrides: [
+    {
+      files: ["*.tsx"],
+      parser: "@typescript-eslint/parser",
+      parserOptions: {
+        project: "./tsconfig.json",
+        tsconfigRootDir: __dirname,
+      },
+      extends: ["plugin:sitecore-jss/recommended"],
+    },
+  ],
 };
 ```
 
 `plugin:sitecore-jss/all` (same as `recommended`) and `plugin:sitecore-jss/strict` (errors) exist too.
-Use a `.cjs` file rather than JSON so `tsconfigRootDir` can be absolute.
+Keep the config inside `overrides`: the legacy configs have no file scope of their own, and at the top
+level the rules would also run on `.js` files, which have no type information. Use a `.cjs` file rather
+than JSON so `tsconfigRootDir` can be absolute.
 
 ### Enabling rules individually
 
@@ -137,11 +145,20 @@ Every rule is auto-fixable and needs type information.
 
 A fix is only offered when it cannot lose code or shadow another binding:
 
-- the field is the element's only meaningful child (`<h3>Hello {title.value}</h3>` is reported only);
+- the field is the element's only meaningful child (`<h3>Hello {title.value}</h3>` and
+  `<span>{title.value}&nbsp;</span>` are reported only);
 - the wrapper is a plain HTML element (`<Typography>{title.value}</Typography>` gets a dedicated
   message suggesting to pass the field to `<Text>`);
-- the component name is free to import (`Link` from `next/link`, `Image` from `next/image` or a local
-  `Text` means the field misuse is reported but nothing is rewritten).
+- the element is not an `<a href>`: in `<a href={link.value.href}>{title.value}</a>` the anchor becomes
+  `<Link>` and the text field inside it is reported for you to wrap in `<Text>`;
+- a `dangerouslySetInnerHTML` value has no fallback other than an empty one
+  (`body.value || "<p>Default</p>"` is reported only);
+- the component name is free to import (`Link` from `next/link`, `Image` from `next/image`, a local
+  `Text`, or a DOM global the file uses such as `new Image()` or `file: File` means the field misuse is
+  reported but nothing is rewritten).
+
+`<title>`, `<option>`, `<textarea>`, `<script>` and `<style>` can only hold plain text, so reading
+`.value` inside them is correct and is not reported.
 
 ### Options
 
@@ -149,7 +166,7 @@ All component rules accept one option object:
 
 | Option | Type | Default | Description |
 |---|---|---|---|
-| `importSource` | `string` | the field's package family, falling back to `@sitecore-jss/sitecore-jss-nextjs` | Package to import a component from when the file has no Sitecore import that can be extended. |
+| `importSource` | `string` | the field's package family, falling back to `@sitecore-jss/sitecore-jss-nextjs` | Package to import a component from when the file has no Sitecore import that can be extended. A component already imported from this package is recognised as the Sitecore component. |
 
 ### A note on `--fix` and `parserOptions.project`
 

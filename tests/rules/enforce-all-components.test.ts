@@ -51,6 +51,25 @@ describe("enforce-all-components", () => {
         ],
       },
       {
+        // The text rule must not turn the anchor into <Text tag="a" href=…>: that keeps the
+        // hand-written href and hides the link finding. The link rule rewrites the anchor; the text
+        // inside <Link> stays reported for the author.
+        name: "an anchor with a link href and a text field child becomes <Link>, never <Text tag=\"a\">",
+        code: withProps(
+          `<a href={props.fields.link.value.href} className="cta">{props.fields.title.value}</a>;`
+        ),
+        output: withProps(
+          `<Link field={props.fields.link} className="cta">{props.fields.title.value}</Link>;`
+        ),
+        errors: [{ messageId: "useTextComponentInWrapper" }, { messageId: "useLinkComponent" }],
+      },
+      {
+        name: "the same for a file anchor",
+        code: withProps(`<a href={props.fields.file.value.src}>{props.fields.title.value}</a>;`),
+        output: withProps(`<File field={props.fields.file}>{props.fields.title.value}</File>;`),
+        errors: [{ messageId: "useTextComponentInWrapper" }, { messageId: "useFileComponent" }],
+      },
+      {
         // Each component rule reports its own missing import. The insertions share a position, so
         // ESLint applies one per fix pass; the tracker spots the still-unbound <Link> on the next pass
         // (no type information needed) and adds it then.

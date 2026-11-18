@@ -7,7 +7,7 @@ import {
   MISSING_IMPORT_MESSAGE,
   type ImportOptions,
 } from "../utils/imports";
-import { serializeAttributes } from "../utils/jsx";
+import { isAnchorWithHref, serializeAttributes } from "../utils/jsx";
 import { getFieldPackage, isTextLike } from "../utils/type-checking";
 
 type Options = [ImportOptions];
@@ -49,7 +49,11 @@ export default createRule<Options, MessageIds>({
           isTextLike(type, checker)
         );
         for (const { opening, tagName, intrinsic, fieldText, type, soleChild } of matches) {
-          if (!intrinsic) {
+          // A component wrapper cannot be rewritten, and neither can an `<a href>`: that anchor is the
+          // link / file rule's to turn into `<Link>` / `<File>`. `<Text tag="a" href=…>` would keep the
+          // hand-written href and hide the link finding, so the advice is the wrapper one: put a
+          // `<Text>` inside it.
+          if (!intrinsic || isAnchorWithHref(opening)) {
             context.report({
               node: opening,
               messageId: "useTextComponentInWrapper",

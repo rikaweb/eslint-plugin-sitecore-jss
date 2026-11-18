@@ -13,6 +13,7 @@ import {
   getAttributeExpression,
   getAttributeStringValue,
   getTagName,
+  isAnchorWithHref,
   isElementNamed,
   isIntrinsicElement,
   meaningfulChildren,
@@ -30,10 +31,28 @@ type MessageIds =
   | "avoidDangerouslySetInnerHTML"
   | "missingImport";
 
-/** The `__html` expression of `dangerouslySetInnerHTML={{ __html: ... }}`, looking through `?? ""` / `|| ""`. */
-function getDangerousHtmlExpression(
-  opening: TSESTree.JSXOpeningElement
-): TSESTree.Node | undefined {
+/** `""`, an empty template literal, `null` or `undefined`: a fallback that renders nothing. */
+function isEmptyFallback(node: TSESTree.Node): boolean {
+  if (node.type === AST_NODE_TYPES.Literal) return node.value === "" || node.value === null;
+  if (node.type === AST_NODE_TYPES.TemplateLiteral) {
+    return node.expressions.length === 0 && node.quasis.every((quasi) => quasi.value.raw === "");
+  }
+  return node.type === AST_NODE_TYPES.Identifier && node.name === "undefined";
+}
+
+interface DangerousHtml {
+  /** The expression that supplies the HTML, with fallbacks and guards stripped. */
+  expression: TSESTree.Node;
+  /** False when stripping dropped something that renders (`|| "<p>Default</p>"`, `?? other.value`). */
+  lossless: boolean;
+}
+
+/**
+ * The `__html` expression of `dangerouslySetInnerHTML={{ __html: ... }}`, looking through `?? ""` / `|| ""`.
+ * Any other fallback or guard is looked through too, so the misuse is still reported, but marked as
+ * lossy so that no fix is offered: `<RichText>` could not reproduce it.
+ */
+function getDangerousHtml(opening: TSESTree.JSXOpeningElement): DangerousHtml | undefined {
   const attribute = getAttribute(opening, "dangerouslySetInnerHTML");
   const object = attribute && getAttributeExpression(attribute);
   if (!object || object.type !== AST_NODE_TYPES.ObjectExpression) return undefined;
@@ -46,9 +65,13 @@ function getDangerousHtmlExpression(
       (key.type === AST_NODE_TYPES.Literal && key.value === "__html");
     if (!isHtml) continue;
 
-    let value: TSESTree.Node = property.value;
-    while (value.type === AST_NODE_TYPES.LogicalExpression) value = value.left;
-    return value;
+    let expression: TSESTree.Node = property.value;
+    let lossless = true;
+    while (expression.type === AST_NODE_TYPES.LogicalExpression) {
+      if (expression.operator === "&&" || !isEmptyFallback(expression.right)) lossless = false;
+      expression = expression.left;
+    }
+    return { expression, lossless };
   }
   return undefined;
 }
@@ -129,14 +152,17 @@ export default createRule<Options, MessageIds>({
         const tagName = getTagName(opening, sourceCode);
         const intrinsic = isIntrinsicElement(opening);
 
-        const html = getDangerousHtmlExpression(opening);
+        const html = getDangerousHtml(opening);
         if (html) {
-          const field = getFieldExpression(html);
+          const field = getFieldExpression(html.expression);
           const type = field && resolveType(services, field);
           if (field && type && isRichTextField(type)) {
             const fieldText = sourceCode.getText(field);
             const safe =
-              intrinsic && meaningfulChildren(element).length === 0 && canIntroduce(element, type);
+              intrinsic &&
+              html.lossless &&
+              meaningfulChildren(element).length === 0 &&
+              canIntroduce(element, type);
             context.report({
               node: opening,
               messageId: "avoidDangerouslySetInnerHTML",
@@ -158,7 +184,8 @@ export default createRule<Options, MessageIds>({
           element,
           isRichTextField
         )) {
-          if (!intrinsic) {
+          // Like a component wrapper, an `<a href>` is never rewritten: see `isAnchorWithHref`.
+          if (!intrinsic || isAnchorWithHref(opening)) {
             context.report({
               node: opening,
               messageId: "useRichTextComponentInWrapper",

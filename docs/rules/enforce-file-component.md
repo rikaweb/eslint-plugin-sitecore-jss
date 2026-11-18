@@ -51,7 +51,7 @@ is not a binding and does not block the fix).
 
 | Option | Type | Description |
 |---|---|---|
-| `importSource` | `string` | Package to import `File` from when the file has no Sitecore import that can be extended. Defaults to the package family that declares the field's type. |
+| `importSource` | `string` | Package to import `File` from when the file has no Sitecore import that can be extended. Defaults to the package family that declares the field's type. A `File` already imported from this package is recognised as the Sitecore component. |
 
 ## Messages
 

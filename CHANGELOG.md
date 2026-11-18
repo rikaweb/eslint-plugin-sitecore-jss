@@ -24,22 +24,30 @@ unchanged, so most 1.x setups only need the dependency update.
   `all` config now enables the five individual rules (same severity as before) instead of the meta-rule.
 - **Auto-fix is conservative.** Elements with other children next to the field, component wrappers
   (`<Typography>{title.value}</Typography>`) and component names that are already bound to something else
-  (`Link` from `next/link`, `Image` from `next/image`, locals, type-only imports) are reported without a fix.
+  (`Link` from `next/link`, `Image` from `next/image`, locals, type-only imports, or a DOM global the file
+  uses such as `new Image()` / `file: File`) are reported without a fix. So are an `<a href>` that renders a
+  text field (the anchor is rewritten to `<Link>` / `<File>`, never to `<Text tag="a">`), a field next to an
+  entity such as `&nbsp;`, and a `dangerouslySetInnerHTML` value with a non-empty fallback
+  (`body.value || "<p>Default</p>"`).
   New message ids: `useTextComponentInWrapper`, `useRichTextComponentInWrapper`.
 - **The fix adds the import.** A second problem, `missingImport`, is reported next to the first element that
   needs a component, with a fix that extends an existing Sitecore import or adds a new one.
+- **Text-only elements are no longer reported.** `<title>`, `<option>`, `<textarea>`, `<script>` and `<style>`
+  can only hold plain text, so `{field.value}` inside them is left alone.
 - Message texts were rewritten; `fieldName` placeholders now render with braces (`field={props.fields.title}`).
 
 ### Added
 
 - Flat configs for ESLint 9+: `flat/recommended` (warn), `flat/strict` (error), `flat/all` (alias of
   recommended); legacy `strict` next to `recommended` and `all`. `plugin.meta` carries name and version.
-  The flat configs are scoped to `**/*.ts`, `**/*.tsx`, `**/*.mts` and `**/*.cts`, so `eslint .` does not
-  fail on JavaScript files that are parsed without type information (`eslint.config.mjs`, `next.config.js`).
+  The flat configs are scoped to `**/*.tsx` (the only files TypeScript allows JSX in), so `eslint .` does
+  not fail on files that are parsed without type information (`eslint.config.mjs`, `next.config.js`,
+  `vitest.config.mts`).
 - Content SDK support: field types from `@sitecore-content-sdk/nextjs` / `@sitecore-content-sdk/react` are
   recognised, and the import fixer targets the Content SDK package when the field's type comes from it.
 - Rule option `importSource` (string) on every component rule: the package to import a component from when
-  the file has no Sitecore import that can be extended.
+  the file has no Sitecore import that can be extended. A component already imported from that package is
+  recognised as the Sitecore component.
 - `enforce-richtext-component` detects `dangerouslySetInnerHTML={{ __html: richText.value }}` (also with
   `?? ""` / `|| ""`) and fixes it to `<RichText>` (`avoidDangerouslySetInnerHTML`); `tag={"p"}` is handled
   like `tag="p"`.
@@ -89,7 +97,9 @@ unchanged, so most 1.x setups only need the dependency update.
    ];
    ```
 
-   On ESLint 8, `.eslintrc.cjs` with `extends: ["plugin:sitecore-jss/recommended"]` keeps working.
+   On ESLint 8, `.eslintrc.cjs` with `extends: ["plugin:sitecore-jss/recommended"]` keeps working. Put the
+   TypeScript parser, `parserOptions.project` and the `extends` in an `overrides` entry for `*.tsx`: the
+   rules now need type information, which `.js` files linted by the same config do not have (see the README).
 2. If you used `enforce-all-components` directly, switch to the config or the individual rules.
 3. Prefer `parserOptions.projectService` over `parserOptions.project`: with the classic option, ESLint's
    later `--fix` passes see stale type information and may report zero remaining problems when unfixable

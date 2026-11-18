@@ -26,6 +26,10 @@ describe("enforce-richtext-component", () => {
         ),
       },
       {
+        name: "<textarea> is text-only: not reported",
+        code: withProps(`<textarea>{props.fields.body.value}</textarea>;`),
+      },
+      {
         name: "dangerouslySetInnerHTML with a text field is not this rule's concern",
         code: withProps(
           `<div dangerouslySetInnerHTML={{ __html: String(props.fields.title.value) }} />;`
@@ -128,6 +132,36 @@ describe("enforce-richtext-component", () => {
         ),
         output: withProps(`<RichText field={props.fields.body} tag="div" />;`),
         errors: [{ messageId: "avoidDangerouslySetInnerHTML" }],
+      },
+      {
+        name: "dangerouslySetInnerHTML with an empty || fallback",
+        code: withProps(
+          `<div dangerouslySetInnerHTML={{ __html: props.fields.body?.value || "" }} />;`
+        ),
+        output: withProps(`<RichText field={props.fields.body} tag="div" />;`),
+        errors: [{ messageId: "avoidDangerouslySetInnerHTML" }],
+      },
+      {
+        name: "dangerouslySetInnerHTML with a non-empty fallback: report without a fix",
+        code: withProps(
+          `<div dangerouslySetInnerHTML={{ __html: props.fields.body.value || "<p>Default copy</p>" }} />;`
+        ),
+        output: null,
+        errors: [{ messageId: "avoidDangerouslySetInnerHTML" }],
+      },
+      {
+        name: "dangerouslySetInnerHTML falling back to another field: report without a fix",
+        code: withProps(
+          `declare const other: RichTextField;\n<div dangerouslySetInnerHTML={{ __html: props.fields.body.value ?? other.value ?? "" }} />;`
+        ),
+        output: null,
+        errors: [{ messageId: "avoidDangerouslySetInnerHTML" }],
+      },
+      {
+        name: "rich text inside <a href> is reported without a fix",
+        code: withProps(`<a href="/x">{props.fields.body.value}</a>;`),
+        output: null,
+        errors: [{ messageId: "useRichTextComponentInWrapper" }],
       },
       {
         name: "dangerouslySetInnerHTML on a <p> drops the tag to avoid nested paragraphs",

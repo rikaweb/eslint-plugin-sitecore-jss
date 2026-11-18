@@ -6,7 +6,7 @@ import {
 } from "@typescript-eslint/utils";
 import type ts from "typescript";
 import { getFieldExpression, type FieldExpression } from "./fields";
-import { getTagName, isIntrinsicElement, meaningfulChildren } from "./jsx";
+import { getTagName, isIntrinsicElement, isTextOnlyElement, meaningfulChildren } from "./jsx";
 import { resolveType } from "./type-checking";
 
 export interface FieldChild {
@@ -34,9 +34,11 @@ export function findFieldChildren(
   element: TSESTree.JSXElement,
   matches: (type: ts.Type) => boolean
 ): FieldChild[] {
-  const children = meaningfulChildren(element);
   const opening = element.openingElement;
   const result: FieldChild[] = [];
+  // `<title>{field.value}</title>` and friends are correct as written.
+  if (isTextOnlyElement(opening)) return result;
+  const children = meaningfulChildren(element);
 
   for (const child of children) {
     if (

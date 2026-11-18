@@ -114,6 +114,24 @@ describe("enforce-file-component", () => {
         output: null,
         errors: [{ messageId: "useFileComponent" }],
       },
+      {
+        name: "the DOM global File used as a value is a conflict: report without a fix",
+        code: withProps(
+          `export const upload = new File([], "x");\n<a href={props.fields.file.value.src}>Download</a>;`,
+          { imports: FIELD_TYPES }
+        ),
+        output: null,
+        errors: [{ messageId: "useFileComponent" }],
+      },
+      {
+        name: "the DOM global File used as a type is a conflict too",
+        code: withProps(
+          `export declare const picked: File;\n<a href={props.fields.file.value.src}>Download</a>;`,
+          { imports: FIELD_TYPES }
+        ),
+        output: null,
+        errors: [{ messageId: "useFileComponent" }],
+      },
     ],
   });
 });

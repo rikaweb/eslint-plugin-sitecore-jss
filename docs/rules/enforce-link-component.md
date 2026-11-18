@@ -45,6 +45,10 @@ attribute is kept. The children are kept too, unless they only re-render the fie
 (`{link.value.text}`), which `<Link>` renders by itself; then the result is self-closing. A
 `missingImport` problem with its own fix adds `Link` to the imports when needed.
 
+An `<a>` whose only child is a text field (`<a href={link.value.href}>{title.value}</a>`) becomes
+`<Link field={…}>{title.value}</Link>`; `enforce-text-component` then reports the text inside `<Link>` so
+you can wrap it in `<Text field={title} />`.
+
 No fix is offered when `Link` is already bound to something else — typically `import Link from
 "next/link"`. The problem is still reported; alias one of the imports (for example
 `import NextLink from "next/link"`) and run `--fix` again.
@@ -53,7 +57,7 @@ No fix is offered when `Link` is already bound to something else — typically `
 
 | Option | Type | Description |
 |---|---|---|
-| `importSource` | `string` | Package to import `Link` from when the file has no Sitecore import that can be extended. Defaults to the package family that declares the field's type. |
+| `importSource` | `string` | Package to import `Link` from when the file has no Sitecore import that can be extended. Defaults to the package family that declares the field's type. A `Link` already imported from this package is recognised as the Sitecore component. |
 
 ## Messages
 
