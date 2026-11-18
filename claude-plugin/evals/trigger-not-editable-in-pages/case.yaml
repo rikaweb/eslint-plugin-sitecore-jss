@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: trigger-not-editable-in-pages
+expected_outcome: |
+  Claude consults the sitecore-fields skill and investigates how the subtitle field is rendered.

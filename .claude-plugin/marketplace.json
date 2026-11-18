@@ -1,0 +1,15 @@
+{
+  "name": "sitecore-jss",
+  "owner": {
+    "name": "Sohrab Saboori",
+    "url": "https://github.com/rikaweb"
+  },
+  "description": "Claude Code tooling for Sitecore JSS and Content SDK field components, from the eslint-plugin-sitecore-jss repository",
+  "plugins": [
+    {
+      "name": "jss",
+      "source": "./claude-plugin",
+      "description": "Sitecore JSS / Content SDK field-component conventions, a linter-backed review command and a typed component scaffold"
+    }
+  ]
+}
