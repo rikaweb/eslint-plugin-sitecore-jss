@@ -36,3 +36,6 @@ coverage/
 .cache/ 
 # Scratch file written by tests/integration/cli.test.ts
 tests/fixtures/integration/src/__fixme__*
+
+# Local copy of the blog draft (the source of truth is the Notion blog tracker)
+docs/blog-v2-draft.md
