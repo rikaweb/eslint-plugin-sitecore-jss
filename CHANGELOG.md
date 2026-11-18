@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-11-18
+
+Follow-up to the 2.0.0 code review: the remaining cases where a rule fired on something that is not a
+Sitecore field, or where a fix changed more than the element it rewrote. No option, message id or config
+changed.
+
+### Fixed
+
+- **Only types declared by a Sitecore package are fields.** Field types were matched by name, so a
+  project type called `Field<T>`, `ImageField`, `LinkField` and so on (a form library, for example) was
+  reported and rewritten, and a Sitecore import was added. The type must now be declared by
+  `@sitecore-jss/*` or `@sitecore-content-sdk/*`; re-exports and local aliases of those types still match.
+- **A fix never deletes a comment.** `<h1>{/* note */}{title.value}</h1>`, a comment between attributes
+  and similar cases are reported without a fix. Comments inside attributes and children that the fix
+  keeps do not block it.
+- **An `<a>` without children is reported without a fix** by `enforce-link-component` and
+  `enforce-file-component`. `<Link>` / `<File>` without children render the field's text (`<Link>` falls
+  back to the URL), so an icon or `aria-label`-only link started showing text after `--fix`.
+- **A component imported under an alias is used under that alias.** With
+  `import { Text as JssText } from "…"` the fix renders `<JssText …>` instead of adding a second `Text`
+  specifier. This also makes the fix available next to `next/link` / `next/image` once the Sitecore
+  component is imported as, say, `Link as SitecoreLink`.
+
+### Changed
+
+- The package no longer ships source maps and declaration maps; they pointed at `lib/*.ts`, which is not
+  published.
+- Docs: optional link / file fields and the required `field` prop of `<Link>` / `<File>`; a cast on the
+  field itself (`(x as Field<string>).value`) is not detected; which types count as fields.
+- CI also runs the suite on ESLint 8.57 with `@typescript-eslint/parser` 7.18 and TypeScript 5.4, and the
+  legacy-config test lints a plain `.js` file. The publish workflow pins its actions to commit SHAs.
+
 ## [2.0.0] - 2026-11-18
 
 A rewrite for today's toolchain: ESLint 9/10 flat config, typescript-eslint 8 and the Sitecore Content
@@ -200,7 +232,8 @@ unchanged, so most 1.x setups only need the dependency update.
 - TypeScript support
 - Documentation for all rules and configuration options
 
-[Unreleased]: https://github.com/rikaweb/eslint-plugin-sitecore-jss/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/rikaweb/eslint-plugin-sitecore-jss/compare/v2.0.1...HEAD
+[2.0.1]: https://github.com/rikaweb/eslint-plugin-sitecore-jss/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/rikaweb/eslint-plugin-sitecore-jss/compare/v1.1.6...v2.0.0
 [1.1.6]: https://github.com/rikaweb/eslint-plugin-sitecore-jss/compare/v1.1.5...v1.1.6
 [1.1.5]: https://github.com/rikaweb/eslint-plugin-sitecore-jss/compare/v1.1.4...v1.1.5
