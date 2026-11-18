@@ -5,8 +5,6 @@
     "moduleResolution": "node16",
     "lib": ["es2020"],
     "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
     "outDir": "./dist",
     "rootDir": "./lib",
     "strict": true,
