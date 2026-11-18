@@ -55,24 +55,23 @@ export default createRule<Options, MessageIds>({
         if (!field || !type || !isFileField(type)) return;
 
         const fieldText = sourceCode.getText(field);
-        const binding = imports.binding(element);
-        const fixable = binding !== "conflict";
-        if (binding === "missing") imports.require(opening, getFieldPackage(type));
+        const { binding, name: component } = imports.resolve(element);
+        // No fix either for an anchor without children, or with a comment the fix would drop:
+        // see `buildAnchorReplacement`.
+        const replacement =
+          binding === "conflict"
+            ? undefined
+            : buildAnchorReplacement(sourceCode, element, component, field, ["title", "displayName"]);
+        if (replacement !== undefined && binding === "missing") {
+          imports.require(opening, getFieldPackage(type));
+        }
 
         context.report({
           node: opening,
           messageId: "useFileComponent",
           data: { fieldName: fieldText },
-          fix: fixable
-            ? (fixer) =>
-                fixer.replaceText(
-                  element,
-                  buildAnchorReplacement(sourceCode, element, "File", fieldText, [
-                    "title",
-                    "displayName",
-                  ])
-                )
-            : null,
+          fix:
+            replacement !== undefined ? (fixer) => fixer.replaceText(element, replacement) : null,
         });
       },
     };

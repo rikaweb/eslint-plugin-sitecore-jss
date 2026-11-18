@@ -56,21 +56,23 @@ export default createRule<Options, MessageIds>({
 
         const fieldText = sourceCode.getText(field);
         // `Link` is commonly bound to next/link; never shadow it.
-        const binding = imports.binding(element);
-        const fixable = binding !== "conflict";
-        if (binding === "missing") imports.require(opening, getFieldPackage(type));
+        const { binding, name: component } = imports.resolve(element);
+        // No fix either for an anchor without children, or with a comment the fix would drop:
+        // see `buildAnchorReplacement`.
+        const replacement =
+          binding === "conflict"
+            ? undefined
+            : buildAnchorReplacement(sourceCode, element, component, field, ["text"]);
+        if (replacement !== undefined && binding === "missing") {
+          imports.require(opening, getFieldPackage(type));
+        }
 
         context.report({
           node: opening,
           messageId: "useLinkComponent",
           data: { fieldName: fieldText },
-          fix: fixable
-            ? (fixer) =>
-                fixer.replaceText(
-                  element,
-                  buildAnchorReplacement(sourceCode, element, "Link", fieldText, ["text"])
-                )
-            : null,
+          fix:
+            replacement !== undefined ? (fixer) => fixer.replaceText(element, replacement) : null,
         });
       },
     };

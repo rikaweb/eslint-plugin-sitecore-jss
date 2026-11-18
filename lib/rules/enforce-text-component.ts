@@ -7,7 +7,7 @@ import {
   MISSING_IMPORT_MESSAGE,
   type ImportOptions,
 } from "../utils/imports";
-import { isAnchorWithHref, serializeAttributes } from "../utils/jsx";
+import { dropsComments, isAnchorWithHref, serializeAttributes } from "../utils/jsx";
 import { getFieldPackage, isTextLike } from "../utils/type-checking";
 
 type Options = [ImportOptions];
@@ -48,7 +48,7 @@ export default createRule<Options, MessageIds>({
         const matches = findFieldChildren(sourceCode, services, element, (type) =>
           isTextLike(type, checker)
         );
-        for (const { opening, tagName, intrinsic, fieldText, type, soleChild } of matches) {
+        for (const { opening, tagName, intrinsic, field, fieldText, type, soleChild } of matches) {
           // A component wrapper cannot be rewritten, and neither can an `<a href>`: that anchor is the
           // link / file rule's to turn into `<Link>` / `<File>`. `<Text tag="a" href=…>` would keep the
           // hand-written href and hide the link finding, so the advice is the wrapper one: put a
@@ -62,10 +62,11 @@ export default createRule<Options, MessageIds>({
             continue;
           }
 
-          // Only replace the element when the field is its sole content (a fix must not drop text)
-          // and `Text` is free to import (a fix must not shadow another binding).
-          const binding = imports.binding(element);
-          const fixable = soleChild && binding !== "conflict";
+          // Only replace the element when the field is its sole content (a fix must not drop text
+          // or a comment) and `Text` is free to import (a fix must not shadow another binding).
+          const { binding, name: component } = imports.resolve(element);
+          const fixable =
+            soleChild && binding !== "conflict" && !dropsComments(sourceCode, element, [], [field]);
           if (fixable && binding === "missing") imports.require(opening, getFieldPackage(type));
 
           context.report({
@@ -76,7 +77,7 @@ export default createRule<Options, MessageIds>({
               ? (fixer) =>
                   fixer.replaceText(
                     element,
-                    `<Text field={${fieldText}} tag="${tagName}"${serializeAttributes(sourceCode, opening.attributes)} />`
+                    `<${component} field={${fieldText}} tag="${tagName}"${serializeAttributes(sourceCode, opening.attributes)} />`
                   )
               : null,
           });

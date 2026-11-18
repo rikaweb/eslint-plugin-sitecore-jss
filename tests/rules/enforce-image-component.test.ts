@@ -8,6 +8,15 @@ describe("enforce-image-component", () => {
   ruleTester.run("enforce-image-component", rule, {
     valid: [
       {
+        name: "an ImageField the project declares itself is not a Sitecore field",
+        code: [
+          `interface ImageField { value: { src: string } }`,
+          `declare const form: { pic: ImageField };`,
+          `<img src={form.pic.value.src} />;`,
+          "",
+        ].join("\n"),
+      },
+      {
         name: "plain string src",
         code: withProps(`declare const logo: string;\n<img src={logo} alt="logo" />;`),
       },
@@ -25,6 +34,32 @@ describe("enforce-image-component", () => {
       },
     ],
     invalid: [
+      {
+        name: "a comment between attributes would be deleted: report without a fix",
+        code: withProps(`<img /* hero */ src={props.fields.image.value?.src} alt="" />;`),
+        output: null,
+        errors: [{ messageId: "useImageComponent" }],
+      },
+      {
+        name: "Image imported under an alias next to next/image: the fix renders the alias",
+        code: [
+          `import Image from "next/image";`,
+          `import { ImageField, Image as SitecoreImage } from "${JSS}";`,
+          `declare const image: ImageField;`,
+          `<Image src="/logo.png" alt="" />;`,
+          `<img src={image.value?.src} alt="" />;`,
+          "",
+        ].join("\n"),
+        output: [
+          `import Image from "next/image";`,
+          `import { ImageField, Image as SitecoreImage } from "${JSS}";`,
+          `declare const image: ImageField;`,
+          `<Image src="/logo.png" alt="" />;`,
+          `<SitecoreImage field={image} alt="" />;`,
+          "",
+        ].join("\n"),
+        errors: [{ messageId: "useImageComponent" }],
+      },
       {
         name: "ImageField under strict mode (optional value is a union type)",
         code: withProps(`<img src={props.fields.image.value.src} alt="x" />;`),

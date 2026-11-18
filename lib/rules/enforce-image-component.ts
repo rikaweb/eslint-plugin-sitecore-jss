@@ -8,6 +8,7 @@ import {
   type ImportOptions,
 } from "../utils/imports";
 import {
+  dropsComments,
   getAttribute,
   getAttributeExpression,
   isElementNamed,
@@ -59,9 +60,10 @@ export default createRule<Options, MessageIds>({
         if (!field || !type || !isImageField(type)) return;
 
         const fieldText = sourceCode.getText(field);
-        const binding = imports.binding(element);
-        const fixable = binding !== "conflict";
-        if (binding === "missing") imports.require(opening, getFieldPackage(type));
+        const { binding, name: component } = imports.resolve(element);
+        const fixable =
+          binding !== "conflict" && !dropsComments(sourceCode, element, ["src"], [field]);
+        if (fixable && binding === "missing") imports.require(opening, getFieldPackage(type));
 
         context.report({
           node: opening,
@@ -71,7 +73,7 @@ export default createRule<Options, MessageIds>({
             ? (fixer) =>
                 fixer.replaceText(
                   element,
-                  `<Image field={${fieldText}}${serializeAttributes(sourceCode, opening.attributes, ["src"])} />`
+                  `<${component} field={${fieldText}}${serializeAttributes(sourceCode, opening.attributes, ["src"])} />`
                 )
             : null,
         });

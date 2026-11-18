@@ -65,22 +65,52 @@ export function getAttributeStringValue(attribute: TSESTree.JSXAttribute): strin
   return undefined;
 }
 
+type Attribute = TSESTree.JSXAttribute | TSESTree.JSXSpreadAttribute;
+
+/** The attributes a replacement keeps: all of them (spreads included) except those named in `omit`. */
+function keptAttributes(attributes: readonly Attribute[], omit: readonly string[]): Attribute[] {
+  return attributes.filter(
+    (attribute) =>
+      attribute.type === AST_NODE_TYPES.JSXSpreadAttribute ||
+      attribute.name.type !== AST_NODE_TYPES.JSXIdentifier ||
+      !omit.includes(attribute.name.name)
+  );
+}
+
 /**
  * Re-serialises the element's attributes (spreads included) in source order, minus `omit`,
  * as a string that can follow `field={...}` in a replacement. Starts with a space when non-empty.
  */
 export function serializeAttributes(
   sourceCode: TSESLint.SourceCode,
-  attributes: readonly (TSESTree.JSXAttribute | TSESTree.JSXSpreadAttribute)[],
+  attributes: readonly Attribute[],
   omit: readonly string[] = []
 ): string {
-  const kept = attributes.filter(
-    (attribute) =>
-      attribute.type === AST_NODE_TYPES.JSXSpreadAttribute ||
-      attribute.name.type !== AST_NODE_TYPES.JSXIdentifier ||
-      !omit.includes(attribute.name.name)
-  );
+  const kept = keptAttributes(attributes, omit);
   return kept.length === 0 ? "" : ` ${kept.map((attribute) => sourceCode.getText(attribute)).join(" ")}`;
+}
+
+/**
+ * Whether replacing `element` with text rebuilt from its attributes (minus `omit`) and the `kept`
+ * nodes or ranges would delete a comment. The source of the kept attributes and of `kept` is reused
+ * verbatim, so comments inside them survive. Any other comment in the element (a JSX comment next to
+ * the field, a comment between two attributes) would be lost, and a fix must not lose code.
+ */
+export function dropsComments(
+  sourceCode: TSESLint.SourceCode,
+  element: TSESTree.JSXElement,
+  omit: readonly string[],
+  kept: readonly (TSESTree.Node | TSESTree.Range)[]
+): boolean {
+  const ranges = [...keptAttributes(element.openingElement.attributes, omit), ...kept].map(
+    (item): TSESTree.Range => (Array.isArray(item) ? item : (item as TSESTree.Node).range)
+  );
+  return sourceCode
+    .getCommentsInside(element)
+    .some(
+      (comment) =>
+        !ranges.some(([start, end]) => start <= comment.range[0] && comment.range[1] <= end)
+    );
 }
 
 /**
@@ -120,10 +150,16 @@ export function meaningfulChildren(element: TSESTree.JSXElement): TSESTree.JSXCh
   });
 }
 
+/** Range between the opening and closing tags (empty for self-closing elements). */
+export function innerRange(element: TSESTree.JSXElement): TSESTree.Range {
+  const end = element.openingElement.range[1];
+  return [end, element.closingElement ? element.closingElement.range[0] : end];
+}
+
 /** Raw source between the opening and closing tags (empty for self-closing elements). */
 export function innerText(sourceCode: TSESLint.SourceCode, element: TSESTree.JSXElement): string {
-  if (!element.closingElement) return "";
-  return sourceCode.text.slice(element.openingElement.range[1], element.closingElement.range[0]);
+  const [start, end] = innerRange(element);
+  return sourceCode.text.slice(start, end);
 }
 
 /** Removes an attribute together with the whitespace that precedes it. */
