@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2.0.0] - 2026-10-28
+## [2.0.0] - 2026-11-18
 
 A rewrite for today's toolchain: ESLint 9/10 flat config, typescript-eslint 8 and the Sitecore Content
 SDK, with the auto-fixer made safe and complete. The rule names and the `recommended` / `all` configs are
