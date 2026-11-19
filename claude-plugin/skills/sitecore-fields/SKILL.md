@@ -64,9 +64,9 @@ Props, defaults and edge cases of each component:
   or use another block tag. Likewise do not nest `<Text tag="div">` inside a `<p>` or a heading.
 - **Sitecore `Link` vs `next/link`.** A `LinkField` goes to the Sitecore `<Link>`; in the Next.js
   packages it already renders `next/link` for internal URLs, so nothing is lost. Use `next/link`
-  only for routes written in code. When a file needs both, alias the Next one
-  (`import NextLink from "next/link"`): the linter's fix writes `<Link>` and will not touch a file
-  where `Link` is bound to something else.
+  only for routes written in code. When a file needs both, alias one of them
+  (`import NextLink from "next/link"`, or `Link as SitecoreLink`): the linter will not rewrite an
+  element while `Link` names something else, and linter 2.0.0 only writes the unaliased `<Link>`.
 - **`Image` vs `NextImage` vs `next/image`.** An `ImageField` goes to `<Image>` (plain `<img>` with
   Sitecore media parameters) or `<NextImage>` (Next.js optimisation; needs the media host in
   `images.remotePatterns`, never accepts `src`). `next/image` directly is for static assets only.
@@ -119,6 +119,6 @@ yourself when the user asks in plain words:
 
 ## Verified against
 
-Content SDK 1.4.1 and 2.3.0, JSS 23.0.0, eslint-plugin-sitecore-jss 2.0.0. The reference files mark
+Content SDK 1.4.1 and 2.3.0, JSS 23.0.0, eslint-plugin-sitecore-jss 2.0.1. The reference files mark
 what was checked in package source and what was not. When the project's installed version behaves
 differently, trust the installed package's type declarations over this text.
