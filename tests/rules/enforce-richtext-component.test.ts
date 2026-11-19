@@ -8,6 +8,16 @@ describe("enforce-richtext-component", () => {
   ruleTester.run("enforce-richtext-component", rule, {
     valid: [
       {
+        name: "a RichTextField the project declares itself is not a Sitecore field",
+        code: [
+          `interface RichTextField { value?: string }`,
+          `declare const note: RichTextField;`,
+          `<div>{note.value}</div>;`,
+          `<div dangerouslySetInnerHTML={{ __html: note.value ?? "" }} />;`,
+          "",
+        ].join("\n"),
+      },
+      {
         name: "already uses <RichText> without a tag",
         code: withProps(`<RichText field={props.fields.body} />;`),
       },
@@ -37,6 +47,36 @@ describe("enforce-richtext-component", () => {
       },
     ],
     invalid: [
+      {
+        name: "removing tag=\"p\" keeps a comment in front of the attribute",
+        code: withProps(`<RichText field={props.fields.body} /* legal */ tag="p" />;`),
+        output: withProps(`<RichText field={props.fields.body} /* legal */ />;`),
+        errors: [{ messageId: "avoidRichTextPTag" }],
+      },
+      {
+        name: "a JSX comment next to the field would be deleted: report without a fix",
+        code: withProps(`<div>{props.fields.body.value}{/* legal copy */}</div>;`),
+        output: null,
+        errors: [{ messageId: "useRichTextComponent" }],
+      },
+      {
+        name: "a comment child of a dangerouslySetInnerHTML element blocks the fix",
+        code: withProps(
+          `<div dangerouslySetInnerHTML={{ __html: props.fields.body.value }}>{/* legal copy */}</div>;`
+        ),
+        output: null,
+        errors: [{ messageId: "avoidDangerouslySetInnerHTML" }],
+      },
+      {
+        name: "RichText imported under an alias: the fix renders the alias",
+        code: withProps(`<div className="rte">{props.fields.body.value}</div>;`, {
+          imports: `${FIELD_TYPES}, RichText as JssRichText`,
+        }),
+        output: withProps(`<JssRichText field={props.fields.body} tag="div" className="rte" />;`, {
+          imports: `${FIELD_TYPES}, RichText as JssRichText`,
+        }),
+        errors: [{ messageId: "useRichTextComponent" }],
+      },
       {
         name: "RichTextField inside <div>, attributes preserved",
         code: withProps(`<div className="rte">{props.fields.body.value}</div>;`),

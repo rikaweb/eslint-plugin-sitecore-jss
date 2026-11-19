@@ -23,7 +23,11 @@ Sitecore component with an auto-fix:
 It works with **Sitecore JSS** (`@sitecore-jss/sitecore-jss-nextjs`, `@sitecore-jss/sitecore-jss-react`)
 and the **Sitecore Content SDK** (`@sitecore-content-sdk/nextjs`, `@sitecore-content-sdk/react`): the rules
 recognise the field types through the TypeScript type checker, so they only fire on real Sitecore fields,
-whatever the variable is called.
+whatever the variable is called. A type counts when one of those packages declares it (re-exports and local
+aliases included); a type of your own that merely shares a name, such as a form library's `Field<T>`, is
+ignored. For the same reason, lint with a tsconfig that resolves the Sitecore packages from `node_modules`:
+if `paths` or a `declare module` shim points them at a local mock, the mock's types are not Sitecore
+fields and nothing is reported.
 
 ## Requirements
 
@@ -137,6 +141,7 @@ Every rule is auto-fixable and needs type information.
 - Keeps the children of `<a>` unless they only re-render the field's own text.
 - Looks through optional chaining, non-null assertions and type assertions
   (`fields.title?.value`, `image.value!.src`, `value as string`).
+- Uses a component that is imported under an alias (`import { Text as JssText }` gives `<JssText …>`).
 - Adds the missing import, extending an existing import from a Sitecore package or adding a new one
   after the last import. The package is chosen from the `importSource` option, then an existing Sitecore
   import in the file, then the package that declares the field's type (Content SDK or JSS).
@@ -147,6 +152,11 @@ A fix is only offered when it cannot lose code or shadow another binding:
 
 - the field is the element's only meaningful child (`<h3>Hello {title.value}</h3>` and
   `<span>{title.value}&nbsp;</span>` are reported only);
+- no comment would be deleted (`<h1>{/* note */}{title.value}</h1>` is reported only; comments inside
+  attributes and children that are kept do not count);
+- an `<a>` has children: `<Link>` / `<File>` without children render the field's own text, so an empty
+  anchor (an icon or `aria-label`-only link) is reported only, and so is one whose only child can be
+  empty (`{showIcon && <Icon />}`);
 - the wrapper is a plain HTML element (`<Typography>{title.value}</Typography>` gets a dedicated
   message suggesting to pass the field to `<Text>`);
 - the element is not an `<a href>`: in `<a href={link.value.href}>{title.value}</a>` the anchor becomes
@@ -159,6 +169,11 @@ A fix is only offered when it cannot lose code or shadow another binding:
 
 `<title>`, `<option>`, `<textarea>`, `<script>` and `<style>` can only hold plain text, so reading
 `.value` inside them is correct and is not reported.
+
+A value that only becomes a field through a cast on the field itself,
+`(item.fields.title as Field<string>).value`, is not reported either: the rules read the type of the
+expression under the cast. Give the variable or property the field type instead. A cast on the value
+(`title.value as string`) is looked through.
 
 ### Options
 

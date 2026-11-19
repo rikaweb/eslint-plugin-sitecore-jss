@@ -174,6 +174,14 @@ describe.skipIf(eslintMajor >= 9)(`ESLint ${eslintMajor} with a legacy .eslintrc
     expect(result.errorCount).toBe(0);
   });
 
+  it("leaves plain JS files alone instead of failing for missing type information", () => {
+    // The README's legacy example keeps parser, project and plugin config inside `overrides`.
+    // At the top level this file would fail with "parserOptions.project ... does not include this
+    // file", or the rules would throw for missing type information.
+    const result = runLegacy("next.config.js");
+    expect(result.messages).toEqual([]);
+  });
+
   it("fix converges: every import is added and only the unfixable findings remain", () => {
     fs.copyFileSync(SAMPLE, SCRATCH);
     const fixRun = runLegacy("src/__fixme__.tsx", true);

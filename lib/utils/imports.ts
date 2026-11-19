@@ -122,6 +122,68 @@ export function getComponentBinding(
   return "conflict";
 }
 
+export interface ResolvedComponent {
+  binding: ComponentBinding;
+  /** The JSX name a fix should render: the component's own name, or the alias it is imported under. */
+  name: string;
+}
+
+/**
+ * The local name of `import { name as Alias } from <Sitecore package>` when that alias can be used
+ * as a JSX component at `node`: a value import, capitalised (a lower-case JSX name is an HTML
+ * element), and not shadowed between the import and `node`.
+ */
+function findUsableAlias(
+  sourceCode: TSESLint.SourceCode,
+  node: TSESTree.Node,
+  name: string,
+  options: ImportOptions
+): string | undefined {
+  for (const statement of sourceCode.ast.body) {
+    if (
+      statement.type !== AST_NODE_TYPES.ImportDeclaration ||
+      statement.importKind === "type" ||
+      !isSitecoreComponentPackage(sourceOf(statement), options)
+    ) {
+      continue;
+    }
+    for (const specifier of statement.specifiers) {
+      if (specifier.type !== AST_NODE_TYPES.ImportSpecifier || specifier.importKind === "type") {
+        continue;
+      }
+      const imported =
+        specifier.imported.type === AST_NODE_TYPES.Identifier
+          ? specifier.imported.name
+          : String(specifier.imported.value);
+      const local = specifier.local.name;
+      if (imported !== name || local === name || !/^[A-Z]/.test(local)) continue;
+      const variable = ASTUtils.findVariable(sourceCode.getScope(node), local);
+      if (variable?.defs.some((definition) => definition.node === specifier)) return local;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Like `getComponentBinding`, but also finds the component under an alias:
+ * with `import { Text as JssText } from "@sitecore-jss/sitecore-jss-nextjs"` the fix renders
+ * `<JssText …>` instead of adding a second `Text` specifier (or giving up because `Text` is bound to
+ * something else).
+ */
+export function resolveComponent(
+  sourceCode: TSESLint.SourceCode,
+  node: TSESTree.Node,
+  name: string,
+  options: ImportOptions = {}
+): ResolvedComponent {
+  const binding = getComponentBinding(sourceCode, node, name, options);
+  if (binding !== "sitecore-import") {
+    const alias = findUsableAlias(sourceCode, node, name, options);
+    if (alias !== undefined) return { binding: "sitecore-import", name: alias };
+  }
+  return { binding, name };
+}
+
 export interface ImportPlan {
   /** Package the component ends up imported from. */
   source: string;
@@ -214,8 +276,11 @@ export interface MissingImportReport {
 }
 
 export interface ImportTracker {
-  /** How the component is bound at `node`; call before offering a fix that introduces it. */
-  binding(node: TSESTree.Node): ComponentBinding;
+  /**
+   * How the component is bound at `node` and under which JSX name a fix should render it;
+   * call before offering a fix that introduces it.
+   */
+  resolve(node: TSESTree.Node): ResolvedComponent;
   /** Records that a fix in this pass introduces the component at `opening`. */
   require(opening: TSESTree.JSXOpeningElement, fieldPackage: FieldPackage | undefined): void;
   /** Listeners to spread into the rule's listener object. */
@@ -240,7 +305,7 @@ export function createImportTracker(
   let hasSitecoreImport = false;
 
   return {
-    binding: (node) => getComponentBinding(sourceCode, node, name, options),
+    resolve: (node) => resolveComponent(sourceCode, node, name, options),
     require(opening, fieldPackage) {
       needed ??= { opening, fieldPackage };
     },

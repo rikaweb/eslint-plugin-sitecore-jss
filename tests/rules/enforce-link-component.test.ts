@@ -8,6 +8,15 @@ describe("enforce-link-component", () => {
   ruleTester.run("enforce-link-component", rule, {
     valid: [
       {
+        name: "a LinkField the project declares itself is not a Sitecore field",
+        code: [
+          `interface LinkField { value: { href: string } }`,
+          `declare const nav: { home: LinkField };`,
+          `<a href={nav.home.value.href}>Home</a>;`,
+          "",
+        ].join("\n"),
+      },
+      {
         name: "literal href",
         code: withProps(`<a href="/about">About</a>;`),
       },
@@ -42,18 +51,118 @@ describe("enforce-link-component", () => {
     ],
     invalid: [
       {
+        name: "an only child that can be empty would let <Link> render the link text: no fix",
+        code: withProps(
+          `declare const showIcon: boolean;\n<a href={props.fields.link.value.href}>{showIcon && <i />}</a>;`
+        ),
+        output: null,
+        errors: [{ messageId: "useLinkComponent" }],
+      },
+      {
+        name: "a ternary with an empty branch as the only child: no fix",
+        code: withProps(
+          `declare const showIcon: boolean;\n<a href={props.fields.link.value.href}>{showIcon ? <i /> : null}</a>;`
+        ),
+        output: null,
+        errors: [{ messageId: "useLinkComponent" }],
+      },
+      {
+        name: "a null child: no fix",
+        code: withProps(`<a href={props.fields.link.value.href}>{null}</a>;`),
+        output: null,
+        errors: [{ messageId: "useLinkComponent" }],
+      },
+      {
+        name: "a conditional child next to other content is kept: the children are never empty",
+        code: withProps(
+          `declare const showIcon: boolean;\n<a href={props.fields.link.value.href}>{showIcon && <i />}<span>Go</span></a>;`
+        ),
+        output: withProps(
+          `declare const showIcon: boolean;\n<Link field={props.fields.link}>{showIcon && <i />}<span>Go</span></Link>;`
+        ),
+        errors: [{ messageId: "useLinkComponent" }],
+      },
+      {
+        name: "a plain expression child is taken to render something",
+        code: withProps(`declare const label: string;\n<a href={props.fields.link.value.href}>{label}</a>;`),
+        output: withProps(`declare const label: string;\n<Link field={props.fields.link}>{label}</Link>;`),
+        errors: [{ messageId: "useLinkComponent" }],
+      },
+      {
+        name: "an anchor without children would start rendering the link text: report without a fix",
+        code: withProps(
+          `<a href={props.fields.link.value.href} aria-label="Home" className="logo" />;`
+        ),
+        output: null,
+        errors: [{ messageId: "useLinkComponent", data: { fieldName: "props.fields.link" } }],
+      },
+      {
+        name: "an anchor with an empty body is not fixed either, and no import is added for it",
+        code: withProps(`<a href={props.fields.link.value.href}>\n</a>;`, { imports: FIELD_TYPES }),
+        output: null,
+        errors: [{ messageId: "useLinkComponent" }],
+      },
+      {
+        name: "a comment-only anchor is not fixed",
+        code: withProps(`<a href={props.fields.link.value.href}>{/* icon via CSS */}</a>;`),
+        output: null,
+        errors: [{ messageId: "useLinkComponent" }],
+      },
+      {
+        name: "a comment next to the field's own text would be deleted: report without a fix",
+        code: withProps(
+          `<a href={props.fields.link.value.href}>{/* label */}{props.fields.link.value.text}</a>;`
+        ),
+        output: null,
+        errors: [{ messageId: "useLinkComponent" }],
+      },
+      {
+        name: "a comment among children that are kept is carried over",
+        code: withProps(
+          `<a href={props.fields.link.value.href}>{/* icon */}<span>Read more</span></a>;`
+        ),
+        output: withProps(
+          `<Link field={props.fields.link}>{/* icon */}<span>Read more</span></Link>;`
+        ),
+        errors: [{ messageId: "useLinkComponent" }],
+      },
+      {
+        name: "an optional link field is passed on as written (may need a guard for the required prop)",
+        code: withProps(
+          `declare const card: { link?: LinkField };\n<a href={card.link?.value.href}>Go</a>;`
+        ),
+        output: withProps(
+          `declare const card: { link?: LinkField };\n<Link field={card.link}>Go</Link>;`
+        ),
+        errors: [{ messageId: "useLinkComponent", data: { fieldName: "card.link" } }],
+      },
+      {
+        name: "Link imported under an alias next to next/link: the fix renders the alias",
+        code: [
+          `import Link from "next/link";`,
+          `import { LinkField, Link as SitecoreLink } from "${JSS}";`,
+          `declare const link: LinkField;`,
+          `<Link href="/about">About</Link>;`,
+          `<a href={link.value.href}>{link.value.text}</a>;`,
+          "",
+        ].join("\n"),
+        output: [
+          `import Link from "next/link";`,
+          `import { LinkField, Link as SitecoreLink } from "${JSS}";`,
+          `declare const link: LinkField;`,
+          `<Link href="/about">About</Link>;`,
+          `<SitecoreLink field={link} />;`,
+          "",
+        ].join("\n"),
+        errors: [{ messageId: "useLinkComponent" }],
+      },
+      {
         name: "LinkField href with the field text as child, attributes preserved",
         code: withProps(
           `<a href={props.fields.link.value.href} className="btn">{props.fields.link.value.text}</a>;`
         ),
         output: withProps(`<Link field={props.fields.link} className="btn" />;`),
         errors: [{ messageId: "useLinkComponent", data: { fieldName: "props.fields.link" } }],
-      },
-      {
-        name: "self-closing anchor",
-        code: withProps(`<a href={props.fields.link.value.href} />;`),
-        output: withProps(`<Link field={props.fields.link} />;`),
-        errors: [{ messageId: "useLinkComponent" }],
       },
       {
         name: "optional chaining on value",

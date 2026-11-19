@@ -8,6 +8,28 @@ describe("enforce-text-component", () => {
   ruleTester.run("enforce-text-component", rule, {
     valid: [
       {
+        name: "a Field / TextField the project declares itself is not a Sitecore field",
+        code: [
+          `interface Field<T> { value: T; touched: boolean }`,
+          `interface TextField { value?: string }`,
+          `declare const form: { name: Field<string>; note: TextField };`,
+          `<label>{form.name.value}</label>;`,
+          `<p>{form.note.value}</p>;`,
+          "",
+        ].join("\n"),
+      },
+      {
+        name: "a local type named Field next to a Sitecore import is still not a Sitecore field",
+        code: [
+          `import { Text } from "${JSS}";`,
+          `import type { FormField as Field } from "./local-types";`,
+          `declare const name: Field<string>;`,
+          `<label>{name.value}</label>;`,
+          `<Text field={{ value: "x" }} />;`,
+          "",
+        ].join("\n"),
+      },
+      {
         name: "already uses <Text>",
         code: withProps(`<Text field={props.fields.title} tag="h1" />;`),
       },
@@ -75,6 +97,116 @@ describe("enforce-text-component", () => {
     ],
     invalid: [
       {
+        name: "a Sitecore type re-exported from a local module is still a Sitecore field",
+        code: [
+          `import type { Field, TextField } from "./local-types";`,
+          `declare const title: Field<string>;`,
+          `declare const heading: TextField;`,
+          `<h1>{title.value}</h1>;`,
+          `<h2>{heading.value}</h2>;`,
+          "",
+        ].join("\n"),
+        output: [
+          `import type { Field, TextField } from "./local-types";`,
+          `import { Text } from "${JSS}";`,
+          `declare const title: Field<string>;`,
+          `declare const heading: TextField;`,
+          `<Text field={title} tag="h1" />;`,
+          `<Text field={heading} tag="h2" />;`,
+          "",
+        ].join("\n"),
+        errors: [
+          { messageId: "useTextComponent" },
+          { messageId: "missingImport", data: { name: "Text", source: JSS } },
+          { messageId: "useTextComponent" },
+        ],
+      },
+      {
+        name: "a local alias of a Sitecore type is still a Sitecore field",
+        code: withProps(`type Title = Field<string>;\ndeclare const title: Title;\n<h1>{title.value}</h1>;`),
+        output: withProps(
+          `type Title = Field<string>;\ndeclare const title: Title;\n<Text field={title} tag="h1" />;`
+        ),
+        errors: [{ messageId: "useTextComponent" }],
+      },
+      {
+        name: "a JSX comment next to the field would be deleted: report without a fix",
+        code: withProps(`<h1>{/* page heading */}{props.fields.title.value}</h1>;`),
+        output: null,
+        errors: [{ messageId: "useTextComponent" }],
+      },
+      {
+        name: "a comment inside the field expression container blocks the fix too",
+        code: withProps(`<h1>{/* page heading */ props.fields.title.value}</h1>;`),
+        output: null,
+        errors: [{ messageId: "useTextComponent" }],
+      },
+      {
+        name: "a comment between attributes would be deleted: report without a fix",
+        code: withProps(`<h1 /* hero */ className="hero">{props.fields.title.value}</h1>;`),
+        output: null,
+        errors: [{ messageId: "useTextComponent" }],
+      },
+      {
+        name: "a comment inside an attribute that is kept does not block the fix",
+        code: withProps(
+          `<h1 onClick={() => { /* tracked elsewhere */ }}>{props.fields.title.value}</h1>;`
+        ),
+        output: withProps(
+          `<Text field={props.fields.title} tag="h1" onClick={() => { /* tracked elsewhere */ }} />;`
+        ),
+        errors: [{ messageId: "useTextComponent" }],
+      },
+      {
+        name: "Text imported under an alias: the fix renders the alias and adds no specifier",
+        code: withProps(`<h2>{props.fields.title.value}</h2>;`, {
+          imports: `${FIELD_TYPES}, Text as JssText`,
+        }),
+        output: withProps(`<JssText field={props.fields.title} tag="h2" />;`, {
+          imports: `${FIELD_TYPES}, Text as JssText`,
+        }),
+        errors: [{ messageId: "useTextComponent" }],
+      },
+      {
+        name: "an alias makes the fix possible where Text itself is bound to something else",
+        code: withProps(`declare const Text: unknown;\n<h2>{props.fields.title.value}</h2>;`, {
+          imports: `${FIELD_TYPES}, Text as JssText`,
+        }),
+        output: withProps(
+          `declare const Text: unknown;\n<JssText field={props.fields.title} tag="h2" />;`,
+          { imports: `${FIELD_TYPES}, Text as JssText` }
+        ),
+        errors: [{ messageId: "useTextComponent" }],
+      },
+      {
+        name: "a lower-case alias cannot be a JSX component: Text is imported as before",
+        code: withProps(`<h2>{props.fields.title.value}</h2>;`, {
+          imports: `${FIELD_TYPES}, Text as text`,
+        }),
+        output: withProps(`<Text field={props.fields.title} tag="h2" />;`, {
+          imports: `${FIELD_TYPES}, Text as text, Text`,
+        }),
+        errors: [
+          { messageId: "useTextComponent" },
+          { messageId: "missingImport", data: { name: "Text", source: JSS } },
+        ],
+      },
+      {
+        name: "a shadowed alias is not used: Text is imported as before",
+        code: withProps(
+          `export function Card(JssText: string) {\n  return <h2 title={JssText}>{props.fields.title.value}</h2>;\n}`,
+          { imports: `${FIELD_TYPES}, Text as JssText` }
+        ),
+        output: withProps(
+          `export function Card(JssText: string) {\n  return <Text field={props.fields.title} tag="h2" title={JssText} />;\n}`,
+          { imports: `${FIELD_TYPES}, Text as JssText, Text` }
+        ),
+        errors: [
+          { messageId: "useTextComponent" },
+          { messageId: "missingImport", data: { name: "Text", source: JSS } },
+        ],
+      },
+      {
         name: "Field<string> inside <h1>, attributes preserved",
         code: withProps(`<h1 className="title">{props.fields.title.value}</h1>;`),
         output: withProps(`<Text field={props.fields.title} tag="h1" className="title" />;`),
@@ -100,12 +232,6 @@ describe("enforce-text-component", () => {
       {
         name: "multi-line element with whitespace around the expression",
         code: withProps(`<h1>\n  {props.fields.title.value}\n</h1>;`),
-        output: withProps(`<Text field={props.fields.title} tag="h1" />;`),
-        errors: [{ messageId: "useTextComponent" }],
-      },
-      {
-        name: "a comment sibling does not block the fix",
-        code: withProps(`<h1>{/* page heading */}{props.fields.title.value}</h1>;`),
         output: withProps(`<Text field={props.fields.title} tag="h1" />;`),
         errors: [{ messageId: "useTextComponent" }],
       },

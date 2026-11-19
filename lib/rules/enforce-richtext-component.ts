@@ -9,6 +9,7 @@ import {
   type ImportOptions,
 } from "../utils/imports";
 import {
+  dropsComments,
   getAttribute,
   getAttributeExpression,
   getAttributeStringValue,
@@ -110,26 +111,25 @@ export default createRule<Options, MessageIds>({
       context.report({ messageId: "missingImport", ...descriptor })
     );
 
+    /**
+     * The `<RichText>` replacement for `element`, or undefined when no fix may be offered: `RichText`
+     * is bound to something else, or the replacement would drop a comment. Records the import need.
+     */
     const replacement = (
       element: TSESTree.JSXElement,
       tagName: string,
-      fieldText: string,
+      field: TSESTree.Node,
+      type: Parameters<typeof getFieldPackage>[0],
       omit: readonly string[] = []
-    ): string => {
+    ): string | undefined => {
+      const { binding, name: component } = imports.resolve(element);
+      if (binding === "conflict" || dropsComments(sourceCode, element, omit, [field])) {
+        return undefined;
+      }
+      if (binding === "missing") imports.require(element.openingElement, getFieldPackage(type));
       // `<p>` would nest paragraphs; leave the tag off so RichText falls back to its <div> wrapper.
       const tag = tagName === "p" ? "" : ` tag="${tagName}"`;
-      return `<RichText field={${fieldText}}${tag}${serializeAttributes(sourceCode, element.openingElement.attributes, omit)} />`;
-    };
-
-    /** Whether a fix introducing `<RichText>` may be offered at `element`; records the import need. */
-    const canIntroduce = (
-      element: TSESTree.JSXElement,
-      type: Parameters<typeof getFieldPackage>[0]
-    ): boolean => {
-      const binding = imports.binding(element);
-      if (binding === "conflict") return false;
-      if (binding === "missing") imports.require(element.openingElement, getFieldPackage(type));
-      return true;
+      return `<${component} field={${sourceCode.getText(field)}}${tag}${serializeAttributes(sourceCode, element.openingElement.attributes, omit)} />`;
     };
 
     return {
@@ -158,27 +158,20 @@ export default createRule<Options, MessageIds>({
           const type = field && resolveType(services, field);
           if (field && type && isRichTextField(type)) {
             const fieldText = sourceCode.getText(field);
-            const safe =
-              intrinsic &&
-              html.lossless &&
-              meaningfulChildren(element).length === 0 &&
-              canIntroduce(element, type);
+            const safe = intrinsic && html.lossless && meaningfulChildren(element).length === 0;
+            const text = safe
+              ? replacement(element, tagName, field, type, ["dangerouslySetInnerHTML"])
+              : undefined;
             context.report({
               node: opening,
               messageId: "avoidDangerouslySetInnerHTML",
               data: { fieldName: fieldText },
-              fix: safe
-                ? (fixer) =>
-                    fixer.replaceText(
-                      element,
-                      replacement(element, tagName, fieldText, ["dangerouslySetInnerHTML"])
-                    )
-                : null,
+              fix: text !== undefined ? (fixer) => fixer.replaceText(element, text) : null,
             });
           }
         }
 
-        for (const { fieldText, type, soleChild } of findFieldChildren(
+        for (const { field, fieldText, type, soleChild } of findFieldChildren(
           sourceCode,
           services,
           element,
@@ -193,14 +186,12 @@ export default createRule<Options, MessageIds>({
             });
             continue;
           }
-          const safe = soleChild && canIntroduce(element, type);
+          const text = soleChild ? replacement(element, tagName, field, type) : undefined;
           context.report({
             node: opening,
             messageId: tagName === "p" ? "avoidNestedPTags" : "useRichTextComponent",
             data: { tagName, fieldName: fieldText },
-            fix: safe
-              ? (fixer) => fixer.replaceText(element, replacement(element, tagName, fieldText))
-              : null,
+            fix: text !== undefined ? (fixer) => fixer.replaceText(element, text) : null,
           });
         }
       },

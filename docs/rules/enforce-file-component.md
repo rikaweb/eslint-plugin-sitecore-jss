@@ -44,8 +44,27 @@ attribute is kept. The children are kept too, unless they only re-render the fie
 `title` or `displayName`, which `<File>` renders by itself; then the result is self-closing. A
 `missingImport` problem with its own fix adds `File` to the imports when needed.
 
-No fix is offered when `File` is already bound to something else in the file (the DOM `File` global
-is not a binding and does not block the fix).
+No fix is offered when `File` is already bound to something else in the file, or when the file uses
+the DOM global `File` (`new File(…)`, `file: File`). A `File` imported from a Sitecore package under an
+alias (`import { File as SitecoreFile }`) is used under that alias.
+
+No fix is offered either, and the problem is still reported, when:
+
+- the `<a>` has no children (`<a href={file.value.src} className="icon-pdf" />`). The anchor renders
+  nothing, but `<File>` without children renders the file's title, so an icon link would start showing
+  text.
+- the only child can be empty at run time (`{showIcon && <Icon />}`, `{cond ? <Icon /> : null}`,
+  `{null}`). `<File>` would render the file's title whenever it is. This is judged from the syntax only; a
+  plain `{label}` is taken to render something.
+- the fix would delete a comment (`<a href={…}>{file.value.title}{/* pdf */}</a>`). Comments among
+  children that are kept are carried over.
+
+### Optional fields
+
+The fix passes the field on exactly as it was read: `<a href={doc.file?.value.src}>` becomes
+`<File field={doc.file}>`. `<File>` declares `field` as required, so with an optional field
+(`file?: FileField`) under `strictNullChecks` TypeScript reports the new line. Add the guard that fits
+the component, for example `{doc.file && <File field={doc.file} />}`.
 
 ## Options
 

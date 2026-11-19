@@ -38,7 +38,13 @@ Not reported:
 <Card title={props.fields.title} />      // the field is passed on, not rendered
 <span>{count.value}</span>               // `Field<number>` (not covered in 2.0)
 <title>{props.fields.title.value}</title> // text-only element: `.value` is correct here
+<label>{form.name.value}</label>         // your own `Field<T>` type, not declared by a Sitecore package
+<p>{(item.fields.title as Field<string>).value}</p> // a cast on the field itself hides its type
 ```
+
+Only types declared by a Sitecore package (`@sitecore-jss/*`, `@sitecore-content-sdk/*`) count as fields,
+including re-exports and local aliases of them. The rule reads the type of the expression under a cast,
+so type the variable or property as a field instead of casting it at the point of use.
 
 `<title>`, `<option>`, `<textarea>`, `<script>` and `<style>` can only hold plain text. `<Text tag="title">`
 would not be picked up by `next/head`, and the editing markup `<Text>` emits is not valid inside them, so
@@ -48,13 +54,15 @@ these elements are never reported.
 
 The element is replaced by `<Text field={…} tag="<element>" …attributes />`, keeping every attribute and
 spread. If `Text` is not imported, a second problem (`missingImport`) is reported with a fix that extends
-an existing import from a Sitecore package or adds one after the last import.
+an existing import from a Sitecore package or adds one after the last import. When `Text` is imported
+under an alias (`import { Text as JssText }`), the fix renders `<JssText …>` and adds nothing.
 
 The fix is **not** offered when it could lose code or shadow a binding; the problem is still reported:
 
 | Situation | Message |
 |---|---|
 | other children next to the field (`<h3>Hello {title.value}</h3>`, `<span>{title.value}&nbsp;</span>`) | `useTextComponent`, no fix |
+| a comment the fix would delete (`<h1>{/* note */}{title.value}</h1>`, a comment between attributes) | `useTextComponent`, no fix |
 | the element is an `<a href>` (`<a href={link.value.href}>{title.value}</a>`) | `useTextComponentInWrapper`: `enforce-link-component` / `enforce-file-component` turn the anchor into `<Link>` / `<File>`; put a `<Text>` inside it |
 | the wrapper is a component (`<Typography>{title.value}</Typography>`) | `useTextComponentInWrapper` (pass the field to `<Text>`, or let the component accept the field) |
 | `Text` is already bound to something else (a local, an import from another package, a type-only import), or the file uses the DOM global `Text` (`node instanceof Text`) | `useTextComponent`, no fix |

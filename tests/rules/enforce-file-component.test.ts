@@ -8,6 +8,15 @@ describe("enforce-file-component", () => {
   ruleTester.run("enforce-file-component", rule, {
     valid: [
       {
+        name: "a FileField the project declares itself is not a Sitecore field",
+        code: [
+          `interface FileField { value: { src: string } }`,
+          `declare const upload: FileField;`,
+          `<a href={upload.value.src}>Download</a>;`,
+          "",
+        ].join("\n"),
+      },
+      {
         name: "literal href",
         code: withProps(`<a href="/docs/guide.pdf">Guide</a>;`),
       },
@@ -27,6 +36,38 @@ describe("enforce-file-component", () => {
       },
     ],
     invalid: [
+      {
+        name: "an only child that can be empty would let <File> render the file title: no fix",
+        code: withProps(
+          `declare const showIcon: boolean;\n<a href={props.fields.file.value.src}>{showIcon && <i />}</a>;`
+        ),
+        output: null,
+        errors: [{ messageId: "useFileComponent" }],
+      },
+      {
+        name: "an anchor without children would start rendering the file title: report without a fix",
+        code: withProps(`<a href={props.fields.file.value.src} className="icon-pdf" />;`),
+        output: null,
+        errors: [{ messageId: "useFileComponent", data: { fieldName: "props.fields.file" } }],
+      },
+      {
+        name: "a comment next to the field's own title would be deleted: report without a fix",
+        code: withProps(
+          `<a href={props.fields.file.value.src}>{props.fields.file.value.title}{/* pdf */}</a>;`
+        ),
+        output: null,
+        errors: [{ messageId: "useFileComponent" }],
+      },
+      {
+        name: "File imported under an alias: the fix renders the alias",
+        code: withProps(`<a href={props.fields.file.value.src}>Download</a>;`, {
+          imports: `${FIELD_TYPES}, File as SitecoreFile`,
+        }),
+        output: withProps(`<SitecoreFile field={props.fields.file}>Download</SitecoreFile>;`, {
+          imports: `${FIELD_TYPES}, File as SitecoreFile`,
+        }),
+        errors: [{ messageId: "useFileComponent" }],
+      },
       {
         name: "FileField src with the field title as child",
         code: withProps(

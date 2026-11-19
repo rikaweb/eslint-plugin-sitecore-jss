@@ -18,9 +18,36 @@ export function resolveType(
   return type;
 }
 
+const CONTENT_SDK_PATH = /[\\/]@sitecore-content-sdk[\\/]/;
+const JSS_PATH = /[\\/]@sitecore-jss[\\/]/;
+
+/**
+ * Which Sitecore package family declares `type`, judged by the path of the declaring file
+ * (`…/node_modules/@sitecore-jss/sitecore-jss-react/types/…`). A type that is only re-exported or
+ * aliased locally still resolves to the package's declaration; a type the project declares itself
+ * under the same name (`interface Field<T> { value: T; touched: boolean }` in a form library) has
+ * no declaration there and is not a Sitecore field.
+ */
+function declaringPackage(type: ts.Type): FieldPackage | undefined {
+  const declarations = [
+    ...(type.symbol?.declarations ?? []),
+    ...(type.aliasSymbol?.declarations ?? []),
+  ];
+  const fileNames = declarations.map((declaration) => declaration.getSourceFile().fileName);
+  if (fileNames.some((fileName) => CONTENT_SDK_PATH.test(fileName))) {
+    return "@sitecore-content-sdk/nextjs";
+  }
+  if (fileNames.some((fileName) => JSS_PATH.test(fileName))) {
+    return "@sitecore-jss/sitecore-jss-nextjs";
+  }
+  return undefined;
+}
+
+/** The type's name, or undefined when it is not declared by a Sitecore package. */
 function symbolName(type: ts.Type): string | undefined {
   const name = type.symbol?.escapedName ?? type.aliasSymbol?.escapedName;
-  return name === undefined ? undefined : String(name);
+  if (name === undefined || declaringPackage(type) === undefined) return undefined;
+  return String(name);
 }
 
 /** True when every member of a (possibly union) type satisfies the predicate. */
@@ -74,11 +101,8 @@ export const isImageField = hasSymbolName(["ImageField", "ImageFieldValue"]);
 export const isLinkField = hasSymbolName(["LinkField", "LinkFieldValue"]);
 export const isFileField = hasSymbolName(["FileField", "FileFieldValue"]);
 
-/** Which Sitecore package declares the field type, judged by the declaring file's path. */
+/** Which Sitecore package family declares the field type (the first member of a union decides). */
 export function getFieldPackage(type: ts.Type): FieldPackage | undefined {
   const member = type.isUnion() ? type.types[0] : type;
-  const fileName = member?.symbol?.declarations?.[0]?.getSourceFile().fileName ?? "";
-  if (/[\\/]@sitecore-content-sdk[\\/]/.test(fileName)) return "@sitecore-content-sdk/nextjs";
-  if (/[\\/]@sitecore-jss[\\/]/.test(fileName)) return "@sitecore-jss/sitecore-jss-nextjs";
-  return undefined;
+  return member ? declaringPackage(member) : undefined;
 }

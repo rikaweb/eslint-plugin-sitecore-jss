@@ -50,3 +50,22 @@ jobs:
         run: npm install --no-save --legacy-peer-deps eslint@${{ matrix.eslint }}
       - run: node -e "console.log('eslint', require('eslint/package.json').version)"
       - run: npm test
+
+  lower-bounds:
+    # The compat job above always runs with the parser and TypeScript from the lockfile. This one
+    # covers the low end of the peer ranges: ESLint 8.57 with @typescript-eslint/parser 7.
+    # TypeScript 5.4 rather than 4.8.4, because this job also builds lib/, which uses `satisfies`
+    # (TypeScript 4.9+); consumers only load the compiled dist/.
+    name: lower bounds (eslint 8.57 / parser 7.18 / typescript 5.4)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Install the lower-bound toolchain
+        run: npm install --no-save --legacy-peer-deps eslint@8.57 @typescript-eslint/parser@7.18.0 typescript@5.4.5
+      - run: node -e "for (const p of ['eslint', '@typescript-eslint/parser', 'typescript']) console.log(p, require(p + '/package.json').version)"
+      - run: npm test
