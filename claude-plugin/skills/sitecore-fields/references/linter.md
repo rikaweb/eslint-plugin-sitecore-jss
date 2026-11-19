@@ -1,6 +1,6 @@
 # Working with eslint-plugin-sitecore-jss
 
-Written against eslint-plugin-sitecore-jss 2.0.0. The installed package ships its own rule
+Written against eslint-plugin-sitecore-jss 2.0.1 (2.0.0 differs where noted). The installed package ships its own rule
 documentation in `node_modules/eslint-plugin-sitecore-jss/docs/rules/<rule>.md` and its `README.md`;
 when they disagree with this file, the installed copy is right for that project.
 
@@ -175,9 +175,11 @@ lint again.
 | Field with `&nbsp;` or an icon beside it | `<span>{f.value}&nbsp;</span>` | `<span><Text field={f} />&nbsp;</span>` |
 | Wrapper is a component | `<Typography>{f.value}</Typography>` | `<Typography><Text field={f} /></Typography>`, or give the wrapper a `field` prop |
 | Text field inside an anchor of a link field | `<a href={l.value.href}>{f.value}</a>` | `<Link field={l}><Text field={f} /></Link>` (the link rule's fix makes the `<Link>`; add the `<Text>`) |
-| `Link` is `next/link` | `import Link from "next/link"` plus `<a href={l.value.href}>` | rename the Next import (`import NextLink from "next/link"`, update its usages), then run `--fix` |
-| `Image` is `next/image` | `import Image from "next/image"` plus `<img src={i.value.src}>` | rename the Next import (`NextImage` clashes with Sitecore's; use e.g. `StaticImage`), or render the field with Sitecore's `<NextImage field={i} />` |
-| Name bound to a local, a type-only import, or a DOM global used as a value (`new Image()`, `x instanceof Text`, `file: File`) | | rename the local, or import the Sitecore component under an alias (`Image as SitecoreImage`) and write the element by hand |
+| `Link` is `next/link` | `import Link from "next/link"` plus `<a href={l.value.href}>` | rename the Next import (`import NextLink from "next/link"`, update its usages), then run `--fix`. From 2.0.1 the other direction works too: import the Sitecore one under an alias (`Link as SitecoreLink`) and the fix writes `<SitecoreLink>` |
+| `Image` is `next/image` | `import Image from "next/image"` plus `<img src={i.value.src}>` | rename the Next import (`NextImage` clashes with Sitecore's; use e.g. `StaticImage`), import the Sitecore one under an alias (`Image as SitecoreImage`, 2.0.1+), or render the field with Sitecore's `<NextImage field={i} />` |
+| Name bound to a local, a type-only import, or a DOM global used as a value (`new Image()`, `x instanceof Text`, `file: File`) | | rename the local, or import the Sitecore component under an alias (`Image as SitecoreImage`); 2.0.1 then fixes with the alias, 2.0.0 needs the element written by hand |
+| An `<a>` with no children, or whose only child can be empty (2.0.1+) | `<a href={l.value.href} aria-label="Home" />`, `<a href={l.value.href}>{showIcon && <Icon />}</a>` | `<Link>` / `<File>` without children print the field's text, so decide what should show: keep the icon as a child that always renders, or accept the link text and write `<Link field={l} />` |
+| A comment the rewrite would delete (2.0.1+) | `<h1>{/* note */}{f.value}</h1>` | move the comment above the element, then run `--fix` |
 | `dangerouslySetInnerHTML` with a real fallback | `__html: body.value \|\| "<p>Default</p>"` | `{body?.value \|\| isEditing ? <RichText field={body} /> : <div dangerouslySetInnerHTML={{ __html: fallback }} />}` so the field stays editable when empty |
 
 When the rewritten element is `<Link>` or `<File>` and the field is optional, add a presence guard
@@ -197,6 +199,9 @@ Check these yourself when reviewing; a clean lint run does not cover them.
 
 - A value that reaches JSX through a variable or helper (`const href = l.value.href`).
 - Fields typed loosely (`any`, untyped `Field`, index signatures): no type, no finding.
+- From 2.0.1, field types that are not declared by a Sitecore package: a project's own `Field<T>` /
+  `ImageField`, or a local mock of the Sitecore package (`declare module`, tsconfig `paths`).
+- A cast on the field itself: `(x as Field<string>).value`.
 - `Field<number>`, date fields and checkbox fields.
 - Field components guarded by `.value` so that empty fields vanish from the editor.
 - `<Text>` used for a Rich Text template field that is typed `Field<string>`.
