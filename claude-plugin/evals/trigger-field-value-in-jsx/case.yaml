@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: trigger-field-value-in-jsx
+expected_outcome: |
+  Claude consults the sitecore-fields skill and points out that the heading and link are rendered by hand and should use Text and Link.

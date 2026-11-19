@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: trigger-image-choice
+expected_outcome: |
+  Claude consults the sitecore-fields skill before answering which image component to use.

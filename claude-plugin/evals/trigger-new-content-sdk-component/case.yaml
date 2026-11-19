@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: trigger-new-content-sdk-component
+expected_outcome: |
+  Claude consults the sitecore-fields skill before writing the component, and renders each field with a Sitecore field component.

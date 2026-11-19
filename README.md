@@ -190,6 +190,31 @@ Prefer `parserOptions.projectService` (typescript-eslint's recommended setting).
 information, so a `--fix` run can report zero remaining problems even when unfixable ones exist; a
 second plain `eslint` run shows them. The fixes themselves are applied correctly in both modes.
 
+## Use with Claude Code
+
+The repository also ships a [Claude Code](https://claude.com/claude-code) plugin, so Claude writes
+Sitecore components the way these rules expect and can explain what the linter reports. It is
+optional and separate from the npm package.
+
+```sh
+claude plugin marketplace add rikaweb/eslint-plugin-sitecore-jss
+claude plugin install jss@sitecore-jss
+```
+
+Inside a Claude Code session the same two steps are `/plugin marketplace add rikaweb/eslint-plugin-sitecore-jss`
+and `/plugin install jss@sitecore-jss`. Add `--scope project` to share it with the team through
+`.claude/settings.json`.
+
+| | |
+|---|---|
+| `sitecore-fields` skill | Loaded by Claude when it works on a JSS / Content SDK component: which field component fits which field type, `Link` and `Image` next to `next/link` and `next/image`, typing `fields`, keeping empty fields editable, placeholders and datasource checks per router. These are the cases a linter cannot decide. |
+| `/jss:review [files] [--fix]` | Checks that the linter is installed and configured (flat or legacy config) and offers the setup above if it is not, runs it on the changed or given files, and explains every finding, including why some have no automatic fix and how to rewrite them by hand. |
+| `/jss:component <Name> [Field:type ...]` | Scaffolds a typed component for the project's package family and router, e.g. `/jss:component Promo Title:text Body:richtext Image:image Cta:link`, then lints and type-checks it. |
+
+The plugin lives in [`claude-plugin/`](claude-plugin); the design and test notes are in
+[docs/claude-skill-design.md](docs/claude-skill-design.md). Update it with
+`claude plugin update jss@sitecore-jss`.
+
 ## Migrating from 1.x
 
 1. Update ESLint to 8.57 or newer and `@typescript-eslint/parser` to 7 or 8. ESLint 9/10 projects

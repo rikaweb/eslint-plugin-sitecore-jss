@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: no-trigger-plain-next-component
+expected_outcome: |
+  Claude builds the component without consulting the sitecore-fields skill.
