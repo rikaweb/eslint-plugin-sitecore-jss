@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2.0.1] - 2026-11-18
+## [2.0.1] - 2026-11-19
 
 Follow-up to the 2.0.0 code review: the remaining cases where a rule fired on something that is not a
 Sitecore field, or where a fix changed more than the element it rewrote. No option, message id or config
