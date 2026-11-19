@@ -88,7 +88,6 @@ lists no file from `claude-plugin/`). The two scripts are linted by the reposito
 | Not built | Why |
 |---|---|
 | MCP server | Nothing here needs a running service: the facts come from `package.json`, the ESLint config and one ESLint run. Agreed earlier as "later, if ever". |
-| `AGENTS.md` export for Cursor / Copilot | Not cheap enough to do well. A generated copy has to stay in sync with four reference files, and the commands do not exist outside Claude Code. Follow-up below. |
 | Hooks that lint on every edit | Intrusive and slow (type-aware linting), and the skill already says to lint touched files. |
 | A subagent for review | The review is one linear workflow; a subagent would hide the findings from the main conversation. |
 | Plain `commands/*.md` files | Superseded by skills; same slash names either way. |
@@ -249,10 +248,13 @@ skill improves weaker models or sparser projects is untested.
 2. Run both commands for real through `claude -p ... --plugin-dir`, and once in an interactive
    session inside the Pages editor workflow.
 3. Try `/jss:review` on an ESLint 8 project that lacks the linter, to exercise the legacy config offer.
-4. `AGENTS.md` / Cursor rules export: a small script that concatenates the skill body and the
-   reference tables into one file, with a CI check that it is current.
-5. CI: `claude plugin validate --strict` and a check that every message id in `lib/rules` appears in
-   `linter.md` (needs the Claude CLI in CI, or a small Node check for the second part).
+4. Done after the first merge: `docs/AGENTS.sitecore-fields.md` is generated from the skill body and
+   three sections of `linter.md` by `scripts/build-agents-md.mjs`, and `tests/agents-md.test.ts` fails
+   when it is out of date. Text that only works in Claude Code (the scripts, the two commands) is
+   left out.
+5. Done after the first merge: `tests/claude-plugin.test.ts` fails when a rule or message id of the
+   built plugin is missing from `linter.md`. `claude plugin validate --strict` is still not in CI (it
+   needs the Claude CLI there).
 6. Mention the plugin in the 2.0.1 CHANGELOG (left alone here: another session owns the release
    sections).
 7. Unverified Sitecore items to confirm in a running site: `DateField` `render` passed from an App

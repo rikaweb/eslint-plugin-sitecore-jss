@@ -211,6 +211,12 @@ and `/plugin install jss@sitecore-jss`. Add `--scope project` to share it with t
 | `/jss:review [files] [--fix]` | Checks that the linter is installed and configured (flat or legacy config) and offers the setup above if it is not, runs it on the changed or given files, and explains every finding, including why some have no automatic fix and how to rewrite them by hand. |
 | `/jss:component <Name> [Field:type ...]` | Scaffolds a typed component for the project's package family and router, e.g. `/jss:component Promo Title:text Body:richtext Image:image Cta:link`, then lints and type-checks it. |
 
+Other coding agents (Cursor, GitHub Copilot, Codex and anything else that reads an `AGENTS.md`) can
+use the same conventions without the plugin: copy
+[docs/AGENTS.sitecore-fields.md](docs/AGENTS.sitecore-fields.md) into your project's `AGENTS.md`
+or rules file. It is generated from the skill, so it carries the conventions but not the two
+commands.
+
 The plugin lives in [`claude-plugin/`](claude-plugin); the design and test notes are in
 [docs/claude-skill-design.md](docs/claude-skill-design.md). Update it with
 `claude plugin update jss@sitecore-jss`.

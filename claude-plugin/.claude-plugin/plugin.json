@@ -1,6 +1,6 @@
 {
   "name": "jss",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Sitecore JSS / Content SDK field-component conventions for Claude Code: a skill for writing editable components, /jss:review (runs eslint-plugin-sitecore-jss and explains the findings) and /jss:component (scaffolds a typed component)",
   "author": {
     "name": "Sohrab Saboori",
