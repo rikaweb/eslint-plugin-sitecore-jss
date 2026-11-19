@@ -153,7 +153,8 @@ A fix is only offered when it cannot lose code or shadow another binding:
 - no comment would be deleted (`<h1>{/* note */}{title.value}</h1>` is reported only; comments inside
   attributes and children that are kept do not count);
 - an `<a>` has children: `<Link>` / `<File>` without children render the field's own text, so an empty
-  anchor (an icon or `aria-label`-only link) is reported only;
+  anchor (an icon or `aria-label`-only link) is reported only, and so is one whose only child can be
+  empty (`{showIcon && <Icon />}`);
 - the wrapper is a plain HTML element (`<Typography>{title.value}</Typography>` gets a dedicated
   message suggesting to pass the field to `<Text>`);
 - the element is not an `<a href>`: in `<a href={link.value.href}>{title.value}</a>` the anchor becomes

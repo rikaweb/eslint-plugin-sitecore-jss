@@ -53,6 +53,9 @@ No fix is offered either, and the problem is still reported, when:
 - the `<a>` has no children (`<a href={file.value.src} className="icon-pdf" />`). The anchor renders
   nothing, but `<File>` without children renders the file's title, so an icon link would start showing
   text.
+- the only child can be empty at run time (`{showIcon && <Icon />}`, `{cond ? <Icon /> : null}`,
+  `{null}`). `<File>` would render the file's title whenever it is. This is judged from the syntax only; a
+  plain `{label}` is taken to render something.
 - the fix would delete a comment (`<a href={…}>{file.value.title}{/* pdf */}</a>`). Comments among
   children that are kept are carried over.
 

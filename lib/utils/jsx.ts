@@ -162,13 +162,16 @@ export function innerText(sourceCode: TSESLint.SourceCode, element: TSESTree.JSX
   return sourceCode.text.slice(start, end);
 }
 
-/** Removes an attribute together with the whitespace that precedes it. */
+/**
+ * Removes an attribute together with the whitespace that precedes it. A comment in front of the
+ * attribute is kept: the removal starts after it.
+ */
 export function removeAttribute(
   fixer: TSESLint.RuleFixer,
   sourceCode: TSESLint.SourceCode,
   attribute: TSESTree.JSXAttribute
 ): TSESLint.RuleFix {
-  const before = sourceCode.getTokenBefore(attribute);
+  const before = sourceCode.getTokenBefore(attribute, { includeComments: true });
   const start = before ? before.range[1] : attribute.range[0];
   return fixer.removeRange([start, attribute.range[1]]);
 }

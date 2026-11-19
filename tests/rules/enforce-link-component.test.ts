@@ -51,6 +51,44 @@ describe("enforce-link-component", () => {
     ],
     invalid: [
       {
+        name: "an only child that can be empty would let <Link> render the link text: no fix",
+        code: withProps(
+          `declare const showIcon: boolean;\n<a href={props.fields.link.value.href}>{showIcon && <i />}</a>;`
+        ),
+        output: null,
+        errors: [{ messageId: "useLinkComponent" }],
+      },
+      {
+        name: "a ternary with an empty branch as the only child: no fix",
+        code: withProps(
+          `declare const showIcon: boolean;\n<a href={props.fields.link.value.href}>{showIcon ? <i /> : null}</a>;`
+        ),
+        output: null,
+        errors: [{ messageId: "useLinkComponent" }],
+      },
+      {
+        name: "a null child: no fix",
+        code: withProps(`<a href={props.fields.link.value.href}>{null}</a>;`),
+        output: null,
+        errors: [{ messageId: "useLinkComponent" }],
+      },
+      {
+        name: "a conditional child next to other content is kept: the children are never empty",
+        code: withProps(
+          `declare const showIcon: boolean;\n<a href={props.fields.link.value.href}>{showIcon && <i />}<span>Go</span></a>;`
+        ),
+        output: withProps(
+          `declare const showIcon: boolean;\n<Link field={props.fields.link}>{showIcon && <i />}<span>Go</span></Link>;`
+        ),
+        errors: [{ messageId: "useLinkComponent" }],
+      },
+      {
+        name: "a plain expression child is taken to render something",
+        code: withProps(`declare const label: string;\n<a href={props.fields.link.value.href}>{label}</a>;`),
+        output: withProps(`declare const label: string;\n<Link field={props.fields.link}>{label}</Link>;`),
+        errors: [{ messageId: "useLinkComponent" }],
+      },
+      {
         name: "an anchor without children would start rendering the link text: report without a fix",
         code: withProps(
           `<a href={props.fields.link.value.href} aria-label="Home" className="logo" />;`

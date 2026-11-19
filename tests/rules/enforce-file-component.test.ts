@@ -37,6 +37,14 @@ describe("enforce-file-component", () => {
     ],
     invalid: [
       {
+        name: "an only child that can be empty would let <File> render the file title: no fix",
+        code: withProps(
+          `declare const showIcon: boolean;\n<a href={props.fields.file.value.src}>{showIcon && <i />}</a>;`
+        ),
+        output: null,
+        errors: [{ messageId: "useFileComponent" }],
+      },
+      {
         name: "an anchor without children would start rendering the file title: report without a fix",
         code: withProps(`<a href={props.fields.file.value.src} className="icon-pdf" />;`),
         output: null,

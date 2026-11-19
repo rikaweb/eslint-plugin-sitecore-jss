@@ -48,6 +48,12 @@ describe("enforce-richtext-component", () => {
     ],
     invalid: [
       {
+        name: "removing tag=\"p\" keeps a comment in front of the attribute",
+        code: withProps(`<RichText field={props.fields.body} /* legal */ tag="p" />;`),
+        output: withProps(`<RichText field={props.fields.body} /* legal */ />;`),
+        errors: [{ messageId: "avoidRichTextPTag" }],
+      },
+      {
         name: "a JSX comment next to the field would be deleted: report without a fix",
         code: withProps(`<div>{props.fields.body.value}{/* legal copy */}</div>;`),
         output: null,

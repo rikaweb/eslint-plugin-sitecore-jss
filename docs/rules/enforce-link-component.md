@@ -61,6 +61,9 @@ No fix is offered either, and the problem is still reported, when:
   anchor renders nothing, but `<Link>` without children renders the link text, or the URL when the text
   is empty, so an icon link would start showing text. Decide what the link should contain and convert
   it by hand.
+- the only child can be empty at run time (`{showIcon && <Icon />}`, `{cond ? <Icon /> : null}`,
+  `{null}`). `<Link>` would render the link text whenever it is. This is judged from the syntax only; a
+  plain `{label}` is taken to render something.
 - the fix would delete a comment (`<a href={…}>{/* label */}{link.value.text}</a>`). Comments among
   children that are kept are carried over.
 

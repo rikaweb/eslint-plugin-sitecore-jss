@@ -1,5 +1,5 @@
 import { AST_NODE_TYPES, type TSESLint, type TSESTree } from "@typescript-eslint/utils";
-import { getFieldExpression, normalizeFieldText } from "./fields";
+import { getFieldExpression, normalizeFieldText, unwrapExpression } from "./fields";
 import { dropsComments, innerRange, innerText, meaningfulChildren, serializeAttributes } from "./jsx";
 
 function isFieldTextChild(
@@ -22,6 +22,29 @@ function isFieldTextChild(
 }
 
 /**
+ * Whether an expression is written so that it can render nothing: `null`, `false`, `""`, `undefined`,
+ * `cond && <Icon />`, `cond ? <Icon /> : null`, `label || null`. Judged by syntax only; a plain
+ * identifier or call (`{label}`, `{t("more")}`) is taken to render something.
+ */
+function canRenderNothing(expression: TSESTree.Node): boolean {
+  const node = unwrapExpression(expression);
+  switch (node.type) {
+    case AST_NODE_TYPES.Literal:
+      return node.value === null || node.value === false || node.value === "";
+    case AST_NODE_TYPES.Identifier:
+      return node.name === "undefined";
+    case AST_NODE_TYPES.TemplateLiteral:
+      return node.expressions.length === 0 && node.quasis.every((quasi) => quasi.value.raw === "");
+    case AST_NODE_TYPES.LogicalExpression:
+      return node.operator === "&&" || canRenderNothing(node.right);
+    case AST_NODE_TYPES.ConditionalExpression:
+      return canRenderNothing(node.consequent) || canRenderNothing(node.alternate);
+    default:
+      return false;
+  }
+}
+
+/**
  * Builds the `<Link>` / `<File>` replacement for an `<a href={field...}>` element.
  * `href` is dropped (the component derives it from the field); every other attribute is kept.
  * Children are kept too, unless they only re-render the field's own text
@@ -32,7 +55,8 @@ function isFieldTextChild(
  * Returns `undefined` when no replacement renders the same thing without losing code:
  * - an anchor without children renders nothing, but `<Link>` / `<File>` without children render the
  *   field's text (`<Link>` even falls back to the href), so an icon or `aria-label`-only link would
- *   start showing text;
+ *   start showing text. The same happens when the only child can be empty at run time
+ *   (`{showIcon && <Icon />}`): the components test `!children`;
  * - a comment that the replacement would not carry over.
  */
 export function buildAnchorReplacement(
@@ -54,6 +78,14 @@ export function buildAnchorReplacement(
   if (onlyFieldText) {
     if (dropsComments(sourceCode, element, ["href"], [field])) return undefined;
     return `<${component} field={${fieldText}}${attributes} />`;
+  }
+  const [only] = children;
+  if (
+    children.length === 1 &&
+    only.type === AST_NODE_TYPES.JSXExpressionContainer &&
+    canRenderNothing(only.expression)
+  ) {
+    return undefined;
   }
   if (dropsComments(sourceCode, element, ["href"], [field, innerRange(element)])) return undefined;
   return `<${component} field={${fieldText}}${attributes}>${innerText(sourceCode, element)}</${component}>`;

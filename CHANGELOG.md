@@ -21,10 +21,12 @@ changed.
   `@sitecore-jss/*` or `@sitecore-content-sdk/*`; re-exports and local aliases of those types still match.
 - **A fix never deletes a comment.** `<h1>{/* note */}{title.value}</h1>`, a comment between attributes
   and similar cases are reported without a fix. Comments inside attributes and children that the fix
-  keeps do not block it.
+  keeps do not block it. Removing `tag="p"` from `<RichText>` keeps a comment in front of the attribute.
 - **An `<a>` without children is reported without a fix** by `enforce-link-component` and
   `enforce-file-component`. `<Link>` / `<File>` without children render the field's text (`<Link>` falls
-  back to the URL), so an icon or `aria-label`-only link started showing text after `--fix`.
+  back to the URL), so an icon or `aria-label`-only link started showing text after `--fix`. The same
+  applies when the only child can be empty by its syntax (`{showIcon && <Icon />}`,
+  `{cond ? <Icon /> : null}`, `{null}`).
 - **A component imported under an alias is used under that alias.** With
   `import { Text as JssText } from "…"` the fix renders `<JssText …>` instead of adding a second `Text`
   specifier. This also makes the fix available next to `next/link` / `next/image` once the Sitecore
