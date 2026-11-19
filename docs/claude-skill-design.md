@@ -190,7 +190,7 @@ claude -p "/jss:review src/components" --plugin-dir ./claude-plugin
 | `/jss:component DownloadCard Heading:text Details:richtext Thumbnail:image MoreInfo:link Brochure:file ShowBadge:checkbox`, Pages Router | `src/components/DownloadCard.tsx`; 0 linter findings, no `tsc` line for the file |
 | `/jss:review src/components/eslint-plugin-test`, App Router (read-only) | 26 messages, 22 with a fix, 4 without, each of the 4 explained with the right reason (mixed children, component wrapper, `next/image`, `next/link`); 5 groups of extra findings from reading (hardcoded `alt` kept by the fix, `Read more` child replacing the author's link text, `fields` dereferenced without a datasource, ...) |
 | `/jss:review` with no arguments in the cache-components app (linter not configured, read-only) | detected the missing setup, produced the install command and a diff for that app's `defineConfig` flat config; after the simulated "no" it reviewed by reading and found `.value`-guarded field components in 12 files and a value routed through a variable in `TextSlider.tsx` |
-| Legacy (`.eslintrc`) setup offer | not exercised: no ESLint 8 app at hand. The block in `linter.md` is the README's. |
+| Legacy (`.eslintrc`) setup offer | the offer itself was not exercised. Both scripts were run on a scratch ESLint 8.57.1 project (`.eslintrc.cjs` with the README's legacy block, `@typescript-eslint/parser` 7, JSS 22): detected as `legacy` / `configured`, and `lint-fields.mjs` reports the expected fixable and manual findings. |
 
 The testers were asked to criticise the instructions. Their findings led to these changes before
 the second round: a `lint-fields.mjs` script instead of raw ESLint JSON; the
@@ -248,7 +248,7 @@ skill improves weaker models or sparser projects is untested.
    from the result (skill-creator's description optimisation loop).
 2. Run both commands for real through `claude -p ... --plugin-dir`, and once in an interactive
    session inside the Pages editor workflow.
-3. Try `/jss:review` on an ESLint 8 project to exercise the legacy config offer.
+3. Try `/jss:review` on an ESLint 8 project that lacks the linter, to exercise the legacy config offer.
 4. `AGENTS.md` / Cursor rules export: a small script that concatenates the skill body and the
    reference tables into one file, with a CI check that it is current.
 5. CI: `claude plugin validate --strict` and a check that every message id in `lib/rules` appears in

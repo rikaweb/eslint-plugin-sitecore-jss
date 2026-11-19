@@ -1,0 +1,4 @@
+# The Claude Code plugin is read as-is from a checkout: keep LF so skill frontmatter and
+# scripts are identical on every platform.
+.claude-plugin/** text eol=lf
+claude-plugin/** text eol=lf

@@ -73,10 +73,13 @@ function detectRouter(root) {
   const appDir = first(["src/app", "app"]);
   const pagesDir = first(["src/pages", "pages"]);
   const app = appDir !== undefined && hasFile(appDir, /^(page|layout)\.(tsx|jsx|ts|js)$/);
-  // `pages/api` alone does not make a Pages Router app.
-  const pages =
-    pagesDir !== undefined &&
-    readdirSync(pagesDir).some((name) => name !== "api" && /^(?!_).*|^_app\./.test(name));
+  // `pages/api` alone does not make a Pages Router app, and neither do the error pages
+  // (`404`, `500`, `_error`) that an App Router project may keep in `pages/`.
+  const isRoute = (entry) =>
+    entry.isDirectory()
+      ? entry.name !== "api"
+      : /\.(tsx|jsx|ts|js|mdx)$/.test(entry.name) && !/^(404|500|_error|_document)\./.test(entry.name);
+  const pages = pagesDir !== undefined && readdirSync(pagesDir, { withFileTypes: true }).some(isRoute);
   return { router: app && pages ? "both" : app ? "app" : pages ? "pages" : "unknown", appDir, pagesDir };
 }
 
@@ -97,17 +100,25 @@ function detectEslintConfig(root, pkg) {
 }
 
 function changedTsx(root) {
+  // `-z` output is NUL-separated and unquoted, so names with spaces or non-ASCII characters survive.
   const git = (args) =>
     execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] })
-      .split("\n")
+      .split("\0")
       .filter(Boolean);
+  const tryGit = (args) => {
+    try {
+      return git(args);
+    } catch {
+      return []; // e.g. `diff HEAD` in a repository that has no commit yet
+    }
+  };
   try {
-    const top = git(["rev-parse", "--show-toplevel"])[0];
+    const top = git(["rev-parse", "--show-toplevel"])[0].trim();
     // Tracked changes against HEAD plus untracked .tsx files inside this project. Git reports
     // paths relative to the repository top, which can be above the project in a monorepo.
     const files = [
-      ...git(["diff", "--name-only", "--diff-filter=d", "HEAD"]),
-      ...git(["ls-files", "--others", "--exclude-standard", "--full-name"]),
+      ...tryGit(["diff", "--name-only", "-z", "--diff-filter=d", "HEAD"]),
+      ...git(["ls-files", "-z", "--others", "--exclude-standard", "--full-name"]),
     ];
     return [...new Set(files)]
       .map((file) => relative(root, resolve(top, file)).replace(/\\/g, "/"))
