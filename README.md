@@ -25,7 +25,9 @@ and the **Sitecore Content SDK** (`@sitecore-content-sdk/nextjs`, `@sitecore-con
 recognise the field types through the TypeScript type checker, so they only fire on real Sitecore fields,
 whatever the variable is called. A type counts when one of those packages declares it (re-exports and local
 aliases included); a type of your own that merely shares a name, such as a form library's `Field<T>`, is
-ignored.
+ignored. For the same reason, lint with a tsconfig that resolves the Sitecore packages from `node_modules`:
+if `paths` or a `declare module` shim points them at a local mock, the mock's types are not Sitecore
+fields and nothing is reported.
 
 ## Requirements
 

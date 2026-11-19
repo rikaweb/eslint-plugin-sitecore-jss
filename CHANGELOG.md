@@ -19,6 +19,8 @@ changed.
   project type called `Field<T>`, `ImageField`, `LinkField` and so on (a form library, for example) was
   reported and rewritten, and a Sitecore import was added. The type must now be declared by
   `@sitecore-jss/*` or `@sitecore-content-sdk/*`; re-exports and local aliases of those types still match.
+  Types from a local mock of a Sitecore package (tsconfig `paths`, a `declare module` shim) do not; lint
+  with a tsconfig that resolves the real packages.
 - **A fix never deletes a comment.** `<h1>{/* note */}{title.value}</h1>`, a comment between attributes
   and similar cases are reported without a fix. Comments inside attributes and children that the fix
   keeps do not block it. Removing `tag="p"` from `<RichText>` keeps a comment in front of the attribute.
