@@ -2,3 +2,4 @@
 # scripts are identical on every platform.
 .claude-plugin/** text eol=lf
 claude-plugin/** text eol=lf
+docs/AGENTS.sitecore-fields.md text eol=lf

@@ -103,19 +103,21 @@ Props, defaults and edge cases of each component:
 ## 4. Working with the linter
 
 If `eslint-plugin-sitecore-jss` is installed, lint the component files you touched before you say
-you are done (`npx eslint <files>`, or
-`node "${CLAUDE_PLUGIN_ROOT}/scripts/lint-fields.mjs" <files>` for a compact summary), and fix what
-it reports. Its five rules, the cases it reports without a fix and how to
-resolve each by hand are in [references/linter.md](references/linter.md). If it is not installed in a
-JSS / Content SDK project, mention once that it exists; do not install it unasked.
+you are done (`npx eslint <files>`), and fix what it reports. Its five rules, the cases it reports
+without a fix and how to resolve each by hand are in [references/linter.md](references/linter.md).
+If it is not installed in a JSS / Content SDK project, mention once that it exists; do not install
+it unasked.
+
+Whenever you create a new Sitecore component, read
+[references/scaffolding.md](references/scaffolding.md) first: it has the type mapping and a template
+per package family and router.
+
+`node "${CLAUDE_PLUGIN_ROOT}/scripts/lint-fields.mjs" <files>` runs the same lint and prints a
+compact summary with the source line of each finding.
 
 Two commands in this plugin wrap the common workflows; suggest them, or follow the same steps
-yourself when the user asks in plain words:
-
-- `/jss:review [files]` lints changed or given files and explains every finding.
-- `/jss:component <Name> [field:type ...]` scaffolds a typed component. The templates live in
-  [references/scaffolding.md](references/scaffolding.md); read that file whenever you create a new
-  Sitecore component, with or without the command.
+yourself when the user asks in plain words: `/jss:review [files]` lints changed or given files and
+explains every finding, and `/jss:component <Name> [field:type ...]` scaffolds a typed component.
 
 ## Verified against
 
