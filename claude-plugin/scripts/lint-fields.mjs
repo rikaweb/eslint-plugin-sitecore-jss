@@ -33,7 +33,9 @@ let eslintModule;
 try {
   // Resolve ESLint from the project, not from this plugin.
   const require = createRequire(pathToFileURL(join(cwd, "package.json")));
-  eslintModule = await import(pathToFileURL(require.resolve("eslint")).href);
+  const imported = await import(pathToFileURL(require.resolve("eslint")).href);
+  // ESLint is CommonJS: take the named exports when Node detected them, else the default object.
+  eslintModule = imported.ESLint ? imported : (imported.default ?? imported);
 } catch {
   print({ error: `ESLint is not installed in ${cwd}. Run this from the project root.`, kind: "no-eslint" });
   process.exit(0);

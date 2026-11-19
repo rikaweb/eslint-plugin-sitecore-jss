@@ -90,7 +90,8 @@ function detectEslintConfig(root, pkg) {
     format,
     file: file ?? (pkg.eslintConfig ? "package.json#eslintConfig" : null),
     // Text heuristics: a config can pull these in through another module.
-    mentionsLinter: /sitecore-jss/.test(text),
+    // Not a bare /sitecore-jss/: a JSS project's config can name `@sitecore-jss/...` packages.
+    mentionsLinter: /eslint-plugin-sitecore-jss|(?<![@/\w-])sitecore-jss(?![\w-])/.test(text),
     mentionsTypeInfo: /projectService|\bproject\s*:|"project"\s*:/.test(text),
   };
 }
@@ -125,15 +126,32 @@ if (!root) {
 }
 
 const pkg = readJson(join(root, "package.json")) ?? {};
-const declared = { ...pkg.dependencies, ...pkg.devDependencies, ...pkg.peerDependencies };
-const packageInfo = (name) => ({
+const dependenciesOf = (manifest) => ({
+  ...manifest?.dependencies,
+  ...manifest?.devDependencies,
+  ...manifest?.peerDependencies,
+});
+const declared = dependenciesOf(pkg);
+
+/** Range a package is declared with, here or in a package.json above (a workspace root). */
+function declaredRange(name) {
+  if (declared[name]) return declared[name];
+  for (let dir = dirname(root); ; dir = dirname(dir)) {
+    const range = dependenciesOf(readJson(join(dir, "package.json")))[name];
+    if (range) return range;
+    if (dirname(dir) === dir) return null;
+  }
+}
+// Tooling (ESLint, the linter, TypeScript) is often declared once at a workspace root; the
+// Sitecore packages decide the family, so only this project's own package.json counts for them.
+const packageInfo = (name, { ownOnly = false } = {}) => ({
   name,
-  declared: declared[name] ?? null,
+  declared: (ownOnly ? declared[name] : declaredRange(name)) ?? null,
   installed: installedVersion(root, name) ?? null,
 });
 
 const sitecorePackages = Object.entries(FAMILIES).flatMap(([family, names]) =>
-  names.filter((name) => declared[name] || installedVersion(root, name)).map((name) => ({ family, ...packageInfo(name) })),
+  names.filter((name) => declared[name] || installedVersion(root, name)).map((name) => ({ family, ...packageInfo(name, { ownOnly: true }) })),
 );
 const families = [...new Set(sitecorePackages.filter((p) => p.declared).map((p) => p.family))];
 const eslintConfig = detectEslintConfig(root, pkg);
